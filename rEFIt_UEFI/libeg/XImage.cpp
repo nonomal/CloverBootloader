@@ -381,6 +381,7 @@ void XImage::FlipRB()
   }
 }
 
+
 /*
  * The function converted plain array into XImage object
  * Error = 0 - Success
@@ -578,8 +579,10 @@ void XImage::Draw(INTN x, INTN y, float scale) const
 
 void XImage::Draw(INTN x, INTN y, float scale, XBool Opaque) const
 {
+//  DBG("draw at %lld %lld\n", x, y);
   //prepare images
   if (isEmpty()) {
+//    DBG("emptyimage\n");
     return;
   }
 
@@ -628,6 +631,7 @@ EFI_STATUS XImage::LoadXImage(const EFI_FILE *BaseDir, const wchar_t* LIconName)
 {
   return LoadXImage(BaseDir, XStringW().takeValueFrom(LIconName));
 }
+
 //dont call this procedure for SVG theme BaseDir == NULL?
 //it can be used for other files
 EFI_STATUS XImage::LoadXImage(const EFI_FILE *BaseDir, const XString8& IconName)

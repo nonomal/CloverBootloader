@@ -10,7 +10,7 @@
 
 # $1 argument override MYTOOLCHAIN variable, in case you want GCC53 for example
 # ====== COLORS ======
-COL_BLACK="\x1b[30;01m"
+COL_BLACK="\x1b[40;01m"
 COL_RED="\x1b[31;01m"
 COL_GREEN="\x1b[32;01m"
 COL_YELLOW="\x1b[33;01m"
@@ -20,6 +20,7 @@ COL_WHITE="\x1b[37;01m"
 COL_BLUE="\x1b[34;01m"
 COL_RESET="\x1b[39;49;00m"
 # ====== Main Window SetUp ======
+if [[ "$2" != ci ]]; then
 osascript <<EOF
 tell application "System Events" to tell application "Finder"
 	tell process "Terminal"
@@ -34,9 +35,10 @@ tell application "Terminal"
 #	set font name of window 1 to "Monaco"
 #	set font size of window 1 to "11"
 #	set normal text color of window 1 to {3341, 35186, 50092}
-	set position of first window to {650, 420}
+#	set position of first window to {650, 420}
 end tell
 EOF
+fi
 # ====== Clover workspace SetUp ======
 cd "$(dirname $([ -L $0 ] && readlink $0 || echo $0))"
 declare -r CLOVERROOT="$PWD"
@@ -124,7 +126,7 @@ if [[ "$SYSNAME" == Darwin ]]; then
   if [[ $MYTOOLCHAIN == GCC* ]] && [[ ! -x "${GCC131_BIN}" ]]; then
     if [[ $MYTOOLCHAIN == GCC131 ]]; then
       cd "${CLOVERROOT}"
-      ./build_gcc13.sh
+      ./build_gcc14.sh
     else
       MYTOOLCHAIN=XCODE8
     fi
@@ -262,7 +264,7 @@ BLC() {
 if [[ ! -d "${CLOVERROOT}"/CloverPackage/BootLoaderChooser ]]; then
   mkdir -p "${CLOVERROOT}"/CloverPackage/BootLoaderChooser
 fi
-curl -sLq https://github.com/jief666/BootloaderChooser/releases/download/0.5/BootX64.efi > "${CLOVERROOT}"/CloverPackage/BootLoaderChooser/BootX64.efi
+curl -sLq https://github.com/jief666/BootloaderChooser/releases/download/1.4/BootX64.efi  > "${CLOVERROOT}"/CloverPackage/BootLoaderChooser/BootX64.efi
 chmod 775 "${CLOVERROOT}"/CloverPackage/BootLoaderChooser/BootX64.efi
 }
 

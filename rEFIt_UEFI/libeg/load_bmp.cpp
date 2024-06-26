@@ -33,13 +33,15 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-//#include "libegint.h"
+#include "libegint.h"
+#include "../Platform/Utils.h"
+#include "XImage.h"
 
 #include <IndustryStandard/Bmp.h>
-#include "picopng.h"
+//#include "picopng.h"
 
+//#define DBG(...) DebugLog(1, __VA_ARGS__)
 #define DBG(...)
-
 
 // BMP structures
 
@@ -77,9 +79,10 @@
 // Load BMP image
 //
 
-EG_IMAGE * egDecodeBMP(IN UINT8 *FileData, IN UINTN FileDataLength, IN BOOLEAN WantAlpha)
+//EG_IMAGE * egDecodeBMP(IN UINT8 *FileData, IN UINTN FileDataLength, IN BOOLEAN WantAlpha)
+EFI_STATUS XImage::FromBMP(UINT8 *FileData, IN UINTN FileDataLength)
 {
-  EG_IMAGE            *NewImage;
+//  EG_IMAGE            *NewImage;
   BMP_IMAGE_HEADER    *BmpHeader;
   BMP_COLOR_MAP       *BmpColorMap;
   INT32               RealPixelHeight, RealPixelWidth;
@@ -88,22 +91,31 @@ EG_IMAGE * egDecodeBMP(IN UINT8 *FileData, IN UINTN FileDataLength, IN BOOLEAN W
   UINTN               ImageLineOffset;
   UINT8               ImageValue = 0;
   UINT8               AlphaValue;
-  EFI_UGA_PIXEL       *PixelPtr;
+  EFI_GRAPHICS_OUTPUT_BLT_PIXEL       *PixelPtr;
   UINTN               Index, BitIndex;
   
   // read and check header
-  if (FileDataLength < sizeof(BMP_IMAGE_HEADER) || FileData == NULL)
-    return NULL;
+  if (FileDataLength < sizeof(BMP_IMAGE_HEADER) || FileData == NULL) {
+    setEmpty(); // to be 100% sure
+    DBG("1\n");
+    return EFI_NOT_FOUND;
+  }
   BmpHeader = (BMP_IMAGE_HEADER *) FileData;
-  if (BmpHeader->CharB != 'B' || BmpHeader->CharM != 'M')
-    return NULL;
+  if (BmpHeader->CharB != 'B' || BmpHeader->CharM != 'M') {
+    DBG("2\n");
+    return EFI_NOT_FOUND;
+  }
   if (BmpHeader->BitPerPixel != 1 && BmpHeader->BitPerPixel != 4 &&
       BmpHeader->BitPerPixel != 8 && BmpHeader->BitPerPixel != 24 &&
-      BmpHeader->BitPerPixel != 32)
-    return NULL;
+      BmpHeader->BitPerPixel != 32) {
+    DBG("3\n");
+    return EFI_NOT_FOUND;
+  }
   // 32-bit images are always stored uncompressed
-  if (BmpHeader->CompressionType > 0 && BmpHeader->BitPerPixel != 32)
-    return NULL;
+  if (BmpHeader->CompressionType > 0 && BmpHeader->BitPerPixel != 32) {
+    DBG("4\n");
+    return EFI_NOT_FOUND;
+  }
   
   // calculate parameters
   ImageLineOffset = BmpHeader->PixelWidth;
@@ -118,17 +130,27 @@ EG_IMAGE * egDecodeBMP(IN UINT8 *FileData, IN UINTN FileDataLength, IN BOOLEAN W
   if ((ImageLineOffset % 4) != 0)
     ImageLineOffset = ImageLineOffset + (4 - (ImageLineOffset % 4));
   
+  DBG("ImageOffset=%d ImageLineOffset=%lld FileDataLength=%lld\n",
+      BmpHeader->ImageOffset, ImageLineOffset, FileDataLength);
+
   // check bounds
-  RealPixelHeight = BmpHeader->PixelHeight > 0 ? BmpHeader->PixelHeight : -BmpHeader->PixelHeight;
-  RealPixelWidth = BmpHeader->PixelWidth > 0 ? BmpHeader->PixelWidth : -BmpHeader->PixelWidth;
-  if (BmpHeader->ImageOffset + ImageLineOffset * RealPixelHeight > FileDataLength)
-    return NULL;
+  RealPixelHeight = (BmpHeader->PixelHeight > 0 ? BmpHeader->PixelHeight : -BmpHeader->PixelHeight);
+  RealPixelWidth = (BmpHeader->PixelWidth > 0 ? BmpHeader->PixelWidth : -BmpHeader->PixelWidth);
+  if (BmpHeader->ImageOffset + ImageLineOffset * RealPixelHeight > FileDataLength) {
+    DBG("5 H=%d W=%d\n", RealPixelHeight, RealPixelWidth);
+    return EFI_NOT_FOUND;
+  }
   
   // allocate image structure and buffer
-  NewImage = egCreateImage(RealPixelWidth, RealPixelHeight, WantAlpha);
-  if (NewImage == NULL)
-    return NULL;
-  AlphaValue = WantAlpha ? 255 : 0;
+//  NewImage = egCreateImage(RealPixelWidth, RealPixelHeight, WantAlpha);
+//  if (NewImage == NULL)
+//    return NULL;
+//  AlphaValue = WantAlpha ? 255 : 0;
+
+  AlphaValue = 255;
+  setSizeInPixels(RealPixelWidth, RealPixelHeight);
+  DBG("set sizes %u,%u\n", RealPixelWidth, RealPixelHeight);
+//  PixelCount = RealPixelWidth * RealPixelHeight;
   
   // convert image
   BmpColorMap = (BMP_COLOR_MAP *)(FileData + sizeof(BMP_IMAGE_HEADER));
@@ -137,12 +159,13 @@ EG_IMAGE * egDecodeBMP(IN UINT8 *FileData, IN UINTN FileDataLength, IN BOOLEAN W
     ImagePtr = ImagePtrBase;
     ImagePtrBase += ImageLineOffset;
     // vertically mirror
+
     if (BmpHeader->PixelHeight != RealPixelHeight) {
-      PixelPtr = NewImage->PixelData + y * RealPixelWidth;
+      PixelPtr = GetPixelPtr(0,0) + y * RealPixelWidth;
     } else {
-      PixelPtr = NewImage->PixelData + (RealPixelHeight - 1 - y) * RealPixelWidth;
+      PixelPtr = GetPixelPtr(0,0) + (RealPixelHeight - 1 - y) * RealPixelWidth;
     }    
-    
+    DBG("6 BitPerPixel=%d\n", BmpHeader->BitPerPixel);
     switch (BmpHeader->BitPerPixel) {
         
       case 1:
@@ -179,7 +202,7 @@ EG_IMAGE * egDecodeBMP(IN UINT8 *FileData, IN UINTN FileDataLength, IN BOOLEAN W
           PixelPtr->Reserved = AlphaValue;
           PixelPtr++;
         }
-        if ((RealPixelWidth & 1) == 1) {
+        if ((RealPixelWidth & 1) == 1) { // для нечетных
           ImageValue = *ImagePtr++;
           
           Index = ImageValue >> 4;
@@ -217,48 +240,48 @@ EG_IMAGE * egDecodeBMP(IN UINT8 *FileData, IN UINTN FileDataLength, IN BOOLEAN W
           PixelPtr->Green = *ImagePtr++;
           PixelPtr->Red = *ImagePtr++;
           PixelPtr->Reserved = *ImagePtr++;
- //         if (!WantAlpha)
- //           PixelPtr->Reserved = 255 - PixelPtr->Reserved;
+//          if (!WantAlpha)
+//            PixelPtr->Reserved = 255 - PixelPtr->Reserved;
           PixelPtr++;
         }
         
     }
   }
-  
-  return NewImage;
+  DBG("sucсess\n");
+  return EFI_SUCCESS;
 }
 
 //
 // Save BMP image
 //
 
-VOID egEncodeBMP(IN EG_IMAGE *Image, OUT UINT8 **FileDataReturn, OUT UINTN *FileDataLengthReturn)
+//VOID egEncodeBMP(IN EG_IMAGE *Image, OUT UINT8 **FileDataReturn, OUT UINTN *FileDataLengthReturn)
+EFI_STATUS XImage::ToBMP(UINT8** FileDataReturn, UINTN& FileDataLengthReturn)
 {
     BMP_IMAGE_HEADER    *BmpHeader;
     UINT8               *FileData;
     UINT64               FileDataLength;
-    UINT8               *ImagePtr;
     UINT8               *ImagePtrBase;
     UINT64               ImageLineOffset;
-    EFI_UGA_PIXEL       *PixelPtr;
-    INT64                x, y;
+    EFI_GRAPHICS_OUTPUT_BLT_PIXEL       *PixelPtr;
     
-    ImageLineOffset = MultU64x32(Image->Width, 3);
-//    if ((ImageLineOffset % 4) != 0)
-//        ImageLineOffset = ImageLineOffset + (4 - (ImageLineOffset % 4));
-  if ((ImageLineOffset & 3) != 0) {
-            ImageLineOffset = ImageLineOffset + (4 - (ImageLineOffset & 3));
-  }
+    UINT8 * ImagePtr = (UINT8 *)&PixelData[0];
+
+    ImageLineOffset = MultU64x32(Width, 3);
+
+    if ((ImageLineOffset & 3) != 0) {
+        ImageLineOffset = ImageLineOffset + (4 - (ImageLineOffset & 3));
+    }
 
     
     // allocate buffer for file data
-    FileDataLength = sizeof(BMP_IMAGE_HEADER) + MultU64x64(Image->Height, ImageLineOffset);
-    FileData = AllocateZeroPool((UINTN)FileDataLength);
+    FileDataLength = sizeof(BMP_IMAGE_HEADER) + MultU64x64(Height, ImageLineOffset);
+    FileData = (UINT8*)AllocateZeroPool((UINTN)FileDataLength);
     if (FileData == NULL) {
-        Print(L"Error allocate %d bytes\n", FileDataLength);
+        DBG("Error allocate %lld bytes\n", FileDataLength);
         *FileDataReturn = NULL;
-        *FileDataLengthReturn = 0;
-        return;
+        FileDataLengthReturn = 0;
+        return EFI_NOT_FOUND;
     }
     
     // fill header
@@ -268,8 +291,8 @@ VOID egEncodeBMP(IN EG_IMAGE *Image, OUT UINT8 **FileDataReturn, OUT UINTN *File
     BmpHeader->Size = (UINT32)FileDataLength;
     BmpHeader->ImageOffset = sizeof(BMP_IMAGE_HEADER);
     BmpHeader->HeaderSize = 40;
-    BmpHeader->PixelWidth = (UINT32)Image->Width;
-    BmpHeader->PixelHeight = (UINT32)Image->Height;
+    BmpHeader->PixelWidth = (UINT32)Width;
+    BmpHeader->PixelHeight = (UINT32)Height;
     BmpHeader->Planes = 1;
     BmpHeader->BitPerPixel = 24;
     BmpHeader->CompressionType = 0;
@@ -278,13 +301,13 @@ VOID egEncodeBMP(IN EG_IMAGE *Image, OUT UINT8 **FileDataReturn, OUT UINTN *File
     
     // fill pixel buffer
     ImagePtrBase = FileData + BmpHeader->ImageOffset;
-    for (y = 0; y < Image->Height; y++) {
+    for (size_t y = 0; y < Height; y++) {
         ImagePtr = ImagePtrBase;
         ImagePtrBase += ImageLineOffset;
 //        PixelPtr = Image->PixelData + (Image->Height - 1 - y) * Image->Width;
-      PixelPtr = Image->PixelData + (INT32)(Image->Height - 1 - y) * (INT32)Image->Width;
+        PixelPtr = GetPixelPtr(0,0) + (INT32)(Height - 1 - y) * (INT32)Width;
         
-        for (x = 0; x < Image->Width; x++) {
+        for (size_t x = 0; x < Width; x++) {
             *ImagePtr++ = PixelPtr->Blue;
             *ImagePtr++ = PixelPtr->Green;
             *ImagePtr++ = PixelPtr->Red;
@@ -293,6 +316,7 @@ VOID egEncodeBMP(IN EG_IMAGE *Image, OUT UINT8 **FileDataReturn, OUT UINTN *File
     }
     
     *FileDataReturn = FileData;
-    *FileDataLengthReturn = (UINTN)FileDataLength;
+    FileDataLengthReturn = (UINTN)FileDataLength;
+    return EFI_SUCCESS;
 }
 /* EOF */

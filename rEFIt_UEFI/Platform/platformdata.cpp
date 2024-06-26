@@ -66,6 +66,8 @@
  GFX0+IGPU+display
  Mac-7BA5B2D9E42DDD94 iMacPro1,1 Vega 56, no IGPU
  
+ VMWare
+ VMM-x86_64
  */
 
 // for HWTarget recommended values for T2 models (by Gradou)
@@ -802,8 +804,9 @@ XString8 GetReleaseDate(MacModel Model)
 
 void SetDMISettingsForModel(MacModel Model, SETTINGS_DATA* settingsData)
 {
-//  GlobalConfig.CurrentModel = Model; // 2022-05 Not using Goblal config to avoid inter-dependancy. CCPV wouldn't compile anymore.
-                                       //         be sure to to assign GlobalConfig.CurrentModel if you need to.
+//  GlobalConfig.CurrentModel = Model; // 2022-05 Not using Goblal config to avoid inter-dependancy.
+                                       // CCPV wouldn't compile anymore.
+                                       //   be sure to to assign GlobalConfig.CurrentModel if you need to.
   settingsData->Smbios.BiosVersion = ApplePlatformDataArray[Model].firmwareVersion;
   settingsData->Smbios.BiosReleaseDate = GetReleaseDate(Model);
   settingsData->Smbios.EfiVersion = ApplePlatformDataArray[Model].efiversion;

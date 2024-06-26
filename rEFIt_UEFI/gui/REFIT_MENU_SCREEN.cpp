@@ -75,6 +75,27 @@
 #include "../Platform/Settings.h"
 #include "../Platform/StartupSound.h" // for audioIo
 
+///0C483552-CAC3-4E72-B7DD-94F16C44C394
+//constexpr const EFI_GUID PreGuid = { 0x0C483552, 0xCAC3, 0x4E72, { 0x87, 0xDD, 0x94, 0xF1, 0x6C, 0x44, 0xC3, 0x94 } };
+void testEfires()
+{
+//  EFI_STATUS          Status;
+//  UINTN               HandleCount = 0;
+//  EFI_HANDLE          *Handles;
+//  EFI_FILE*     dir;
+
+
+//  Status = gBS->LocateHandleBuffer(ByProtocol, &PreGuid, NULL, &HandleCount, &Handles);
+//  if (!EFI_ERROR(Status) && HandleCount > 0) {
+//    dir = EfiLibOpenRoot(Handles[0]);
+//      if (dir == NULL)
+//          Status = EFI_NOT_FOUND;
+//      FreePool(Handles);
+//  }
+
+
+}
+
 //
 const CHAR16 ArrowUp[2]   = { ARROW_UP, 0 }; //defined in  Simple Text Out protocol
 const CHAR16 ArrowDown[2] = { ARROW_DOWN, 0 };
@@ -690,6 +711,30 @@ EFI_STATUS REFIT_MENU_SCREEN::WaitForInputEventPoll(UINTN TimeoutDefault)
   return Status;
 }
 
+void testBMP()
+{
+    EFI_STATUS      Status;
+    UINT8           *FileData = NULL;
+    UINTN           FileDataLength = 0;
+    INTN Width = 256, Height = 256;
+
+        // load file
+    Status = egLoadFile(&self.getSelfVolumeRootDir(), L"Sample.bmp", &FileData, &FileDataLength);
+
+    if (!EFI_ERROR(Status)) {
+      DBG("read file size=%llu\n", FileDataLength);
+      XImage NewImage(Width, Height);
+      NewImage.FromBMP(FileData, FileDataLength);
+      Width = NewImage.GetWidth();
+      Height = NewImage.GetHeight();
+      DBG("new image sizes w=%llu h=%llu\n", Width, Height);
+      NewImage.Draw((UGAWidth - Width) / 2, (UGAHeight - Height) / 2);
+      FreePool(FileData);
+      FileData = NULL;
+    }
+
+}
+
 
 UINTN REFIT_MENU_SCREEN::RunGenericMenu(IN OUT INTN *DefaultEntryIndex, OUT REFIT_ABSTRACT_MENU_ENTRY **ChosenEntry)
 {
@@ -975,9 +1020,9 @@ UINTN REFIT_MENU_SCREEN::RunGenericMenu(IN OUT INTN *DefaultEntryIndex, OUT REFI
         
         break;
       case SCAN_F8:
-        testSVG();
-//        SaveHdaDumpBin();
-//        SaveHdaDumpTxt();
+ //       testSVG();
+        testBMP();
+        testEfires();
         break;
 
       case SCAN_F9:
@@ -1013,6 +1058,9 @@ UINTN REFIT_MENU_SCREEN::RunGenericMenu(IN OUT INTN *DefaultEntryIndex, OUT REFI
         } else if (!Entries[ScrollState.CurrentSelection].getREFIT_INFO_DIALOG()) {
           MenuExit = MENU_EXIT_ENTER;
         }
+        break;
+      case 'B':
+        testBMP();
         break;
       case ' ': //CHAR_SPACE
         if ((Entries[ScrollState.CurrentSelection].getREFIT_INPUT_DIALOG()) ||
