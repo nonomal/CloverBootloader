@@ -66,6 +66,8 @@
   PeCoffExtraActionLib|MdePkg/Library/BasePeCoffExtraActionLibNull/BasePeCoffExtraActionLibNull.inf
   PeCoffGetEntryPointLib|MdePkg/Library/BasePeCoffGetEntryPointLib/BasePeCoffGetEntryPointLib.inf
   CustomizedDisplayLib|MdeModulePkg/Library/CustomizedDisplayLib/CustomizedDisplayLib.inf
+  OrderedCollectionLib|MdePkg/Library/BaseOrderedCollectionRedBlackTreeLib/BaseOrderedCollectionRedBlackTreeLib.inf
+  BaseUcs2Utf8Lib|RedfishPkg/Library/BaseUcs2Utf8Lib/BaseUcs2Utf8Lib.inf
   #
   # UEFI & PI
   #
@@ -262,6 +264,7 @@
   HandleParsingLib|ShellPkg/Library/UefiHandleParsingLib/UefiHandleParsingLib.inf
   BcfgCommandLib|ShellPkg/Library/UefiShellBcfgCommandLib/UefiShellBcfgCommandLib.inf
 !endif
+
 
 [LibraryClasses.common.DXE_CORE]
   HobLib|MdePkg/Library/DxeCoreHobLib/DxeCoreHobLib.inf
@@ -555,11 +558,11 @@
   }
   OpenCorePkg/Library/OcVariableLib/OcVariableLib.inf {
     <BuildOptions>
-      *_*_*_CC_FLAGS   = $(OC_INCLUDE_FLAG)
+      *_*_*_CC_FLAGS   = $(OC_INCLUDE_FLAG) -Wno-error
   }
   OpenCorePkg/Library/OcMainLib/OcMainLibClover.inf {
     <BuildOptions>
-      *_*_*_CC_FLAGS   = $(OC_INCLUDE_FLAG)
+      *_*_*_CC_FLAGS   = $(OC_INCLUDE_FLAG) -Wno-error
   }
 
 
@@ -638,7 +641,7 @@
   }
   MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
   MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe.inf
-  MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
+  #MdeModulePkg/Universal/DisplayEngineDxe/DisplayEngineDxe.inf
   #MdeModulePkg/Universal/Console/GraphicsConsoleDxe/GraphicsConsoleDxe.inf
   CloverEFI/GraphicsConsoleDxe/GraphicsConsoleDxe.inf
   #MdeModulePkg/Universal/Console/TerminalDxe/TerminalDxe.inf
@@ -716,11 +719,13 @@
   FileSystems/GrubFS/src/ISO9660.inf
   FileSystems/GrubFS/src/NTFS.inf
   FileSystems/GrubFS/src/UDF.inf
-  #FileSystems/GrubFS/src/ZFS.inf
-  #FileSystems/GrubFS/src/UFS.inf
-  #FileSystems/GrubFS/src/UFS2.inf
-  #FileSystems/GrubFS/src/XFS.inf
+  # FileSystems/GrubFS/src/ZFS.inf
+  FileSystems/GrubFS/src/EXT2.inf
+  FileSystems/GrubFS/src/UFS.inf
+  FileSystems/GrubFS/src/UFS2.inf
+  # FileSystems/GrubFS/src/XFS.inf
 !endif
+  Ext4Pkg/Ext4Dxe/Ext4Dxe.inf
 
   #Video
   #IntelFrameworkModulePkg/Bus/Pci/VgaMiniPortDxe/VgaMiniPortDxe.inf
@@ -733,6 +738,7 @@
   #BiosVideoAuto/BiosVideo.inf
   LegacyBios/VideoDxe/VideoDxe.inf
   LegacyBios/VideoDxe/VideoDxe2.inf
+  GopHandoffPkg/GopHandoff.inf
 
   # IDE/AHCI Support
 !ifdef USE_BIOS_BLOCKIO
@@ -1021,7 +1027,6 @@ rEFIt_UEFI/refit.inf {
   DEFINE XLTO_FLAG = -flto -DUSING_LTO
 !endif
 
-
 !ifdef EXIT_USBKB
 DEFINE EXIT_USBKB_FLAG = -DEXIT_USBKB
 !endif
@@ -1034,7 +1039,16 @@ DEFINE JIEF_DEBUG_FLAG = -DJIEF_DEBUG
 DEFINE LESS_DEBUG_FLAG = -DLESS_DEBUG
 !endif
 
-DEFINE BUILD_OPTIONS=-DIS_UEFI_MODULE -DMDEPKG_NDEBUG -DCLOVER_BUILD -DLESS_DEBUG $(VBIOS_PATCH_CLOVEREFI_FLAG) $(ONLY_SATA_0_FLAG) $(BLOCKIO_FLAG) $(NOUSB_FLAG) $(NOUDMA_FLAG) $(AMD_FLAG) $(SECURE_BOOT_FLAG) $(ANDX86_FLAG) $(PS2MOUSE_LEGACYBOOT_FLAG) $(DEBUG_ON_SERIAL_PORT_FLAG) $(EXIT_USBKB_FLAG) $(JIEF_DEBUG_FLAG) -DDISABLE_NEW_DEPRECATED_INTERFACES -DOC_TARGET_DEBUG
+!ifdef ENABLE_MODERN_CPU_QUIRKS
+DEFINE ENABLE_MODERN_CPU_QUIRKS_FLAG = -DENABLE_MODERN_CPU_QUIRKS
+!endif
+
+
+!ifdef NO_MSABI_VA_FUNCS
+DEFINE NO_MSABI_VA_FUNCS_FLAG = -DNO_MSABI_VA_FUNCS
+!endif
+
+DEFINE BUILD_OPTIONS=-DIS_UEFI_MODULE -DMDEPKG_NDEBUG -DCLOVER_BUILD -DLESS_DEBUG $(VBIOS_PATCH_CLOVEREFI_FLAG) $(ONLY_SATA_0_FLAG) $(BLOCKIO_FLAG) $(NOUSB_FLAG) $(NOUDMA_FLAG) $(AMD_FLAG) $(SECURE_BOOT_FLAG) $(ANDX86_FLAG) $(PS2MOUSE_LEGACYBOOT_FLAG) $(DEBUG_ON_SERIAL_PORT_FLAG) $(EXIT_USBKB_FLAG) $(JIEF_DEBUG_FLAG) $(ENABLE_MODERN_CPU_QUIRKS_FLAG) -DDISABLE_NEW_DEPRECATED_INTERFACES -DOC_TARGET_DEBUG
 
   XCODE:DEBUG_*_*_CC_FLAGS = 
   XCODE:DEBUG_*_*_CXX_FLAGS = 

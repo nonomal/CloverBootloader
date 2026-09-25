@@ -306,9 +306,10 @@ void GetAcpiTablesList()
     UINT32 Count = XsdtTableCount();
     UINT64* Ptr = XsdtEntryPtrFromIndex(0);
     UINT64* EndPtr = XsdtEntryPtrFromIndex(Count);
-    DBG("from XSDT:\n");
+    DBG("from XSDT: count=%u\n", Count);
     for (; Ptr < EndPtr; Ptr++) {
       EFI_ACPI_DESCRIPTION_HEADER* Table = (EFI_ACPI_DESCRIPTION_HEADER*)(UINTN)ReadUnaligned64(Ptr);
+//      DBG("X: Table=%16llX\n", (UINTN)Table);
       if (!Table) {
         // skip NULL entry
         continue;
@@ -316,12 +317,14 @@ void GetAcpiTablesList()
       AddDropTable(Table, IndexFromXsdtEntryPtr(Ptr));
     }
   } else if (Rsdt) {
-    DBG("from RSDT:\n");
+
     UINT32 Count = RsdtTableCount();
+    DBG("from RSDT: count=%u\n", Count);
     UINT32* Ptr = RsdtEntryPtrFromIndex(0);
     UINT32* EndPtr = RsdtEntryPtrFromIndex(Count);
     for (; Ptr < EndPtr; Ptr++) {
       EFI_ACPI_DESCRIPTION_HEADER* Table = (EFI_ACPI_DESCRIPTION_HEADER*)(UINTN)*Ptr;
+ //     DBG("R: Table=%16llX\n", (UINTN)Table);
       if (!Table) {
         // skip NULL entry
         continue;
@@ -684,9 +687,7 @@ void PreCleanupRSDT()
   }
 
   //REVIEW: really?
-  // Если адрес RSDT < адреса XSDT и хвост RSDT наползает на XSDT, то подрезаем хвост RSDT до начала XSDT
-  // English: If the RSDT address of the XSDT address and the tail of the RSDT crawls onto the XSDT, then we
-  // trim the RSDT tail before the XSDT starts
+  // If RSDT address < XSDT address and RSDT tail overlaps with XSDT, then trim RSDT tail to the start of XSDT
   if ((UINTN)Rsdt < (UINTN)Xsdt && (UINTN)Rsdt + Rsdt->Header.Length > (UINTN)Xsdt) {
     UINTN v = ((UINTN)Xsdt - (UINTN)Rsdt) & ~3;
     Rsdt->Header.Length = (UINT32)v;
@@ -1239,16 +1240,26 @@ EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE* GetFadt()
   //  EFI_STATUS      Status;
 
   RsdPtr = (__typeof__(RsdPtr))FindAcpiRsdPtr();
+//  DBG("0: RsdPtr=%16llX\n", (UINTN)RsdPtr);
   if (RsdPtr == NULL) {
     /*Status = */EfiGetSystemConfigurationTable (&gEfiAcpi20TableGuid, (void **)&RsdPtr);
     if (RsdPtr == NULL) {
       /*Status = */EfiGetSystemConfigurationTable (&gEfiAcpi10TableGuid, (void **)&RsdPtr);
+ //     DBG("1: RsdPtr=%16llX\n", (UINTN)RsdPtr);
       if (RsdPtr == NULL) {
         return NULL;
       }
     }
   }
+//  DBG("2: RsdPtr=%16llX\n", (UINTN)RsdPtr);
+//  DBG(" Rsdt=%08X\n", (UINT32)(RsdPtr->RsdtAddress));
+//  DBG(" Xsdt=%16llX\n", (UINTN)(RsdPtr->XsdtAddress));  //==0
+//  DBG(" RsdPtr->Revision=%16llX\n", (UINTN)(RsdPtr->Revision)); //==0
+
   Rsdt = (RSDT_TABLE*)(UINTN)(RsdPtr->RsdtAddress);
+//  if (Rsdt) {
+//    DBG(" Rsdt->Header.Signature=%16llX\n", (UINTN)(Rsdt->Header.Signature));
+//  }
   if (RsdPtr->Revision > 0) {
     if (Rsdt == NULL || Rsdt->Header.Signature != EFI_ACPI_2_0_ROOT_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) {
       Xsdt = (XSDT_TABLE *)(UINTN)(RsdPtr->XsdtAddress);
@@ -1262,6 +1273,17 @@ EFI_ACPI_2_0_FIXED_ACPI_DESCRIPTION_TABLE* GetFadt()
     /*Status = */EfiGetSystemConfigurationTable (&gEfiAcpi20TableGuid, (void**)&RsdPtr);
     if (RsdPtr != NULL) {
       DBG("Found UEFI Acpi 2.0 RSDP at %llx\n", (uintptr_t)RsdPtr);
+
+//      DBG("3: RsdPtr=%16llX\n", (UINTN)RsdPtr);
+//      DBG(" Rsdt=%08X\n", (UINT32)(RsdPtr->RsdtAddress));
+//      DBG(" Xsdt=%16llX\n", (UINTN)(RsdPtr->XsdtAddress));
+//      DBG(" RsdPtr->Revision=%16llX\n", (UINTN)(RsdPtr->Revision));
+
+      Rsdt = (RSDT_TABLE*)(UINTN)(RsdPtr->RsdtAddress);
+//      if (Rsdt) {
+//        DBG(" Rsdt->Header.Signature=%16llX\n", (UINTN)(Rsdt->Header.Signature));
+//      }
+
       Rsdt = (RSDT_TABLE*)(UINTN)(RsdPtr->RsdtAddress);
       if (RsdPtr->Revision > 0) {
         if (Rsdt == NULL || Rsdt->Header.Signature != EFI_ACPI_2_0_ROOT_SYSTEM_DESCRIPTION_TABLE_SIGNATURE) {

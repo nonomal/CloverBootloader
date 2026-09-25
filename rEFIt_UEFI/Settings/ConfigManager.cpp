@@ -596,19 +596,27 @@ EFI_STATUS ConfigManager::LoadSMBIOSPlist(const XStringW& ConfName)
   return Status;
 }
 
-void ConfigManager::ReloadSmbios(XStringW& str)
+void ConfigManager::ReloadSmbios(XStringW& str)  // searches for SMBIOS by system name
 {
   size_t N = SmbiosList.size();
-  if (OldChosenSmbios == 0) {
+  DBG("search SMBIOS for %ls\n", str.wc_str());
+  if (OldChosenSmbios == 0) {  // this is auto fill by OSName
     for (size_t i=1; i<N; i++) {
+      DBG("smbios[%lu]:%ls\n", i, SmbiosList[i].wc_str());
       if (SmbiosList[i].contains(str)) {
         OldChosenSmbios = i;
         break;
       }
     }
+    FillSmbiosWithDefaultValue(GlobalConfig.CurrentModel, configPlist.getSMBIOS());
+    DBG("SMBIOS reloaded with model %s\n", gSettings.Smbios.ProductName.c_str());
   }
-  FillSmbiosWithDefaultValue(GlobalConfig.CurrentModel, configPlist.getSMBIOS());
-  DBG("SMBIOS reloaded with model %s\n", gSettings.Smbios.ProductName.c_str());
+  //DBG("boardID from config: %s\n", configPlist.getSMBIOS().getBoardID().getKey().c_str());
+  DBG("boardID from gSettings: %s\n", gSettings.Smbios.BoardNumber.c_str());
+  DBG("chosen SMBIOS %ls\n", SmbiosList[OldChosenSmbios].wc_str());
+  //FillSmbiosWithDefaultValue(GlobalConfig.CurrentModel, configPlist.getSMBIOS()); //getSMBIOS() depends on global OldChosenSmbios
+  //DBG("SMBIOS reloaded with model %s\n", gSettings.Smbios.ProductName.c_str());
+  //configPlist.getSMBIOS().getBoardID().value();
 }
 
 void ConfigManager::FillSmbiosWithDefaultValue(MacModel Model, const SmbiosPlistClass::SmbiosDictClass& smbiosDictClass)
@@ -663,21 +671,33 @@ void ConfigManager::applySettings() const
   {
     if ( !configPlist.Graphics.Inject.isInjectIntelDefined() )
     {
-      gSettings.Graphics.InjectAsDict.InjectIntel =
-              (gConf.GfxPropertiesArray.size() > 0 && gConf.GfxPropertiesArray[0].Vendor == Intel) ||
-              (gConf.GfxPropertiesArray.size() > 1 && gConf.GfxPropertiesArray[1].Vendor == Intel);
+      gSettings.Graphics.InjectAsDict.InjectIntel = false;
+      for (size_t i = 0; i < gConf.GfxPropertiesArray.size(); i++) {
+        if (gConf.GfxPropertiesArray[i].Vendor == Intel) {
+          gSettings.Graphics.InjectAsDict.InjectIntel = true;
+          break;
+        }
+      }
     }
     if ( !configPlist.Graphics.Inject.isInjectATIDefined() )
     {
-      gSettings.Graphics.InjectAsDict.InjectATI =
-              (gConf.GfxPropertiesArray.size() > 0 && gConf.GfxPropertiesArray[0].Vendor == Ati && (gConf.GfxPropertiesArray[0].DeviceID & 0xF000) != 0x6000 )  ||
-              (gConf.GfxPropertiesArray.size() > 1 && gConf.GfxPropertiesArray[1].Vendor == Ati && (gConf.GfxPropertiesArray[1].DeviceID & 0xF000) != 0x6000 );
+      gSettings.Graphics.InjectAsDict.InjectATI = false;
+      for (size_t i = 0; i < gConf.GfxPropertiesArray.size(); i++) {
+        if (gConf.GfxPropertiesArray[i].Vendor == Ati && (gConf.GfxPropertiesArray[i].DeviceID & 0xF000) != 0x6000) {
+          gSettings.Graphics.InjectAsDict.InjectATI = true;
+          break;
+        }
+      }
     }
     if ( !configPlist.Graphics.Inject.isInjectNVidiaDefined() )
     {
-      gSettings.Graphics.InjectAsDict.InjectNVidia =
-        ( gConf.GfxPropertiesArray.isCardAtPosNvidia(0)  &&  gConf.GfxPropertiesArray[0].Family < 0xE0) ||
-        ( gConf.GfxPropertiesArray.isCardAtPosNvidia(1)  &&  gConf.GfxPropertiesArray[1].Family < 0xE0);
+      gSettings.Graphics.InjectAsDict.InjectNVidia = false;
+      for (size_t i = 0; i < gConf.GfxPropertiesArray.size(); i++) {
+        if (gConf.GfxPropertiesArray.isCardAtPosNvidia(i) && gConf.GfxPropertiesArray[i].Family < 0xE0) {
+          gSettings.Graphics.InjectAsDict.InjectNVidia = true;
+          break;
+        }
+      }
     }
     if ( configPlist.RtVariables.dgetBooterCfgStr().isEmpty() )
     {

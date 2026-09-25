@@ -121,7 +121,7 @@ DBG("      Volume->LegacyOS.Name=%ls\n", Volume->LegacyOS.Name.wc_str());
         Entry->Title.SWPrintf("Boot %ls from %ls", LoaderTitle.wc_str(), VolDesc.wc_str());
     }
   }
-  DBG("      Entry->Title=%ls\n", Entry->Title.wc_str());
+//  DBG("      Entry->Title=%ls\n", Entry->Title.wc_str());
 
   Entry->Row          = 0;
   Entry->ShortcutLetter = (Hotkey == 0) ? ShortcutLetter : Hotkey;
@@ -385,7 +385,7 @@ void AddCustomLegacy(void)
       }
       // Create a legacy entry for this volume
       DBG("\n");
-      if (AddLegacyEntry(Custom.settings.FullTitle, Custom.settings.Title, Volume, &MainIcon, &DriveIcon, Custom.settings.Hotkey, true))
+      if (AddLegacyEntry(XStringW(Custom.settings.FullTitle), Custom.settings.Title, Volume, &MainIcon, &DriveIcon, Custom.settings.Hotkey, true))
       {
 //        DBG("match!\n");
       }

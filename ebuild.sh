@@ -21,7 +21,10 @@ declare -r DRIVERS_LEGACY="BIOS" # same in buildpkg.sh/makeiso
 declare -r DRIVERS_UEFI="UEFI"   # same in buildpkg.sh/makeiso
 declare -r DRIVERS_OFF="off"     # same in buildpkg.sh/makeiso
 
+startBuildEpoch=$(date -u "+%s")
+
 if [[ "$SYSNAME" == Linux ]]; then
+  echo "Linux"
   declare -r NUMBER_OF_CPUS=$(nproc)
 else
   declare -r NUMBER_OF_CPUS=$(sysctl -n hw.logicalcpu)
@@ -33,7 +36,7 @@ PLATFORMFILE=
 MODULEFILE=
 TARGETRULE=
 
-SCRIPT_VERS="2019-11-09"
+SCRIPT_VERS="2026-03-01"
 
 # Macro
 M_NOGRUB=0
@@ -51,29 +54,32 @@ export PYTHON_COMMAND=python3
 
 # if building through Xcode, then TOOLCHAIN_DIR is not defined
 # checking if it is where CloverGrowerPro put it
-if [[ "$SYSNAME" == Linux ]]; then
-  export TOOLCHAIN=GCC53
-  TOOLCHAIN_DIR=${TOOLCHAIN_DIR:-/usr}
-else
-  if [[ -d ~/src/opt/local ]]; then
-    TOOLCHAIN_DIR=~/src/opt/local
-  else
-    TOOLCHAIN_DIR=${TOOLCHAIN_DIR:-"$CLOVERROOT"/toolchain}
-  fi
-  export DIR_MAIN=${DIR_MAIN:-"$CLOVERROOT"/toolchain}
-fi
-export TOOLCHAIN_DIR
-echo "TOOLCHAIN_DIR: $TOOLCHAIN_DIR"
-
+#if [[ "$SYSNAME" == Linux ]]; then
+#  export TOOLCHAIN=GCC161
+#  TOOLCHAIN_DIR=${TOOLCHAIN_DIR:-/usr}
+#else
+#  if [[ "$TOOLCHAIN" == XCLANG ]]; then
+#    TOOLCHAIN_DIR=/opt/local
+#  elif [[ -d ~/src/opt/local ]]; then
+#    TOOLCHAIN_DIR=~/src/opt/local
+#  else
+#    TOOLCHAIN_DIR=${TOOLCHAIN_DIR:-"$CLOVERROOT"/toolchain}
+#  fi
+#  export DIR_MAIN=${DIR_MAIN:-"$CLOVERROOT"/toolchain}
+#fi
+#export TOOLCHAIN_DIR
+#echo "TOOLCHAIN_DIR: $TOOLCHAIN_DIR"
 VBIOSPATCHCLOVEREFI=0
 ONLYSATA0PATCH=0
 USE_BIOS_BLOCKIO=0
 USE_LOW_EBDA=1
 CLANG=0
 GENPAGE=0
+LLVM=0
 
 FORCEREBUILD=0
 NOBOOTFILES=0
+ENABLE_MODERN_CPU=1
 
 declare -r GIT=`which git`
 #declare -r GITDIR=`git status 2> /dev/null`        # unsafe as git repository may exist in parent directory
@@ -242,16 +248,20 @@ usage() {
     print_option_help "-v, --version" "print the version information and exit"
     echo
     echo "Toolchain:"
-#    print_option_help "-clang"     "use XCode Clang toolchain"
-#    print_option_help "-llvm"      "use LLVM toolchain"
+    print_option_help "-clang"     "use Clang toolchain"
+    print_option_help "-llvm"      "use LLVM toolchain"
 #    print_option_help "-gcc49"     "use GCC 4.9 toolchain"
-    print_option_help "-gcc53"     "use GCC 5.3 toolchain"
-#    print_option_help "-unixgcc"   "use UNIXGCC toolchain"
-    print_option_help "-xcode"     "use XCode 3.2 toolchain"
-    print_option_help "-xcode5"     "use XCode 5-7 toolchain "
+    print_option_help "-gcc53"     "use GCC 5.3 toolchain, including gcc-11"
+    print_option_help "-gcc131"    "use GCC 13.1 toolchain, including gcc-14.2"
+    print_option_help "-gcc151"    "use GCC 15.1 toolchain"
+    print_option_help "-gcc152"    "use GCC 15.2 toolchain"
+    print_option_help "-gcc161"    "use GCC 16.1 toolchain"
+#    print_option_help "-unixgcc"   "use UNIXGCC toolchain, unsupported"
+#    print_option_help "-xcode"     "use XCode 3.2 toolchain"
+    print_option_help "-xcode5"     "use XCode 5 toolchain, "
     print_option_help "-xcode8"     "use XCode 8 toolchain  [Default]"
-    print_option_help "-xcode14"    "use XCode 14 toolchain"
-    print_option_help "-xcode15"    "use XCode 15 toolchain"
+    print_option_help "-xcode14"     "use XCode 14 toolchain"
+    print_option_help "-xcode16"     "use XCode 16-26 toolchain"
     print_option_help "-t TOOLCHAIN, --tagname=TOOLCHAIN" "force to use a specific toolchain"
     echo
     echo "Target:"
@@ -268,12 +278,10 @@ usage() {
     print_option_help "--vbios-patch-cloverefi" "activate vbios patch in CloverEFI"
     print_option_help "--only-sata0" "activate only SATA0 patch"
     print_option_help "--std-ebda" "ebda offset dont shift to 0x88000"
- #   print_option_help "--genpage" "dynamically generate page table under ebda"
+    print_option_help "--genpage" "dynamically generate page table under ebda"
     print_option_help "--no-usb" "disable USB support"
     print_option_help "--no-lto" "disable Link Time Optimisation"
- #   print_option_help "--ext-pre" "deprecated option"
- #   print_option_help "--ext-co" "deprecated option"
- #   print_option_help "--ext-build" "deprecated option"
+    print_option_help "--no-mcpu" "disable AutoModernCPUQuirks" 
  #   print_option_help "--edk2shell <MinimumShell|FullShell>" "copy edk2 Shell to EFI tools dir"
     echo
     echo "build options:"
@@ -303,20 +311,25 @@ checkCmdlineArguments() {
         local option=$1
         shift
         case "$option" in
+            -llvm  | --llvm)   TOOLCHAIN=LLVM ; CLANG=1 ;;
             -clang  | --clang)   TOOLCHAIN=XCLANG ; CLANG=1 ;;
             -xcode5  | --xcode5 )  TOOLCHAIN=XCODE5 ; CLANG=1 ;;
             -xcode8  | --xcode8 )  TOOLCHAIN=XCODE8 ; CLANG=1 ;;
-            -xcode14  | --xcode14 )  TOOLCHAIN=XCODE14 ; CLANG=1 ;;
-            -xcode15  | --xcode15 )  TOOLCHAIN=XCODE15 ; CLANG=1 ;;
+            -xcode14 | --xcode14 )  TOOLCHAIN=XCODE14 ; CLANG=1 ;;
+            -xcode15 | --xcode15 )  TOOLCHAIN=XCODE15 ; CLANG=1 ;;
+            -xcode16 | --xcode16 )  TOOLCHAIN=XCODE16 ; CLANG=1 ;;
             -GCC49  | --GCC49)   TOOLCHAIN=GCC49   ;;
             -gcc49  | --gcc49)   TOOLCHAIN=GCC49   ;;
             -GCC53  | --GCC53)   TOOLCHAIN=GCC53   ;;
             -gcc53  | --gcc53)   TOOLCHAIN=GCC53   ;;
             -gcc131  | --gcc131)   TOOLCHAIN=GCC131   ;;
+            -gcc151  | --gcc151)   TOOLCHAIN=GCC151   ;;
+            -gcc152  | --gcc152)   TOOLCHAIN=GCC152   ;;
+            -gcc161  | --gcc161)   TOOLCHAIN=GCC161   ;;
             -xcode  | --xcode )  TOOLCHAIN=XCODE32 ;;
             -x64 | --x64)
-                printf "\`%s' is deprecated because Clover is 64 bit only. This message will be removed soon\n" "$option" 1>&2
-                sleep 4
+#                printf "\`%s' is deprecated because Clover is 64 bit only. This message will be removed soon\n" "$option" 1>&2
+#                sleep 4
                 ;;
             -mc | --x64-mcp)   USE_BIOS_BLOCKIO=1 ;;
             -clean)    TARGETRULE=clean ;;
@@ -374,6 +387,9 @@ checkCmdlineArguments() {
             --genpage)
                 GENPAGE=1
                 ;;
+            --no-mcpu)
+                ENABLE_MODERN_CPU=0
+                ;;   
             --no-usb)
                 addEdk2BuildMacro DISABLE_USB_SUPPORT
                 ;;
@@ -420,21 +436,21 @@ checkCmdlineArguments() {
 checkToolchain() {
     case "$TOOLCHAIN" in
         XCLANG|XCODE*) checkXcode ;;
-        *) ;;
+                *) export MTOC_PREFIX="${TOOLCHAIN_DIR}/bin/" ;;
     esac
 
   if [[ "$SYSNAME" == Linux ]]; then
-    export GCC53_BIN="$TOOLCHAIN_DIR/bin/"
-    if [[ ! -x "${GCC53_BIN}gcc" ]]; then
-        echo "No clover toolchain found !" >&2
+    export GCC161_BIN="$TOOLCHAIN_DIR/bin/"
+    if [[ ! -x "${GCC161_BIN}gcc" ]]; then
+        echo "No clover toolchain for Linux found !" >&2
         echo "Install on your system or define the TOOLCHAIN_DIR variable." >&2
         exit 1
     fi
   else
-    export GCC131_BIN="$TOOLCHAIN_DIR/cross/bin/x86_64-clover-linux-gnu-"
-    if [[ $TOOLCHAIN == GCC* ]] && [[ ! -x "${GCC131_BIN}gcc" ]]; then
+    export GCC161_BIN="$TOOLCHAIN_DIR/cross/bin/x86_64-clover-linux-gnu-"
+    if [[ $TOOLCHAIN == GCC* ]] && [[ ! -x "${GCC161_BIN}gcc" ]]; then
       echo "No clover toolchain found !" >&2
-      echo "Build it with the build_gcc9.sh script or define the TOOLCHAIN_DIR variable." >&2
+      echo "Build it with the build_gcc16.sh script or define the TOOLCHAIN_DIR variable." >&2
       exit 1
     fi
   fi
@@ -450,6 +466,11 @@ checkToolchain() {
     ./buildnasm.sh
   fi
 
+  if [[ $TOOLCHAIN == XCLANG ]]; then
+    export XCLANG_PREFIX="/opt/local/bin/"
+    export XCLANG_BIN="/opt/local/libexec/llvm-22/bin/"
+  fi
+
   echo "NASM_PREFIX: $NASM_PREFIX"
 
   #NASM_VER=`nasm -v | awk '/version/ {print $3}'`
@@ -463,25 +484,8 @@ checkToolchain() {
 
 # Main build script
 MainBuildScript() {
-    checkCmdlineArguments $@
-    checkToolchain
-
- #   local repoRev=$(git describe --tags $(git rev-list --tags --max-count=1﻿))
-	local repoRev=$(git describe --tags --abbrev=0)
-
-    #
-    # we are building the same rev as before?
-    local SkipAutoGen=0
-    #
-    if [[ -f "$CLOVERROOT"/Version.h ]]; then
-        local builtedRev=$(cat "$CLOVERROOT"/Version.h  \
-                           | grep '#define FIRMWARE_REVISION L' | awk -v FS="(\"|\")" '{print $2}')
-#    echo "old revision ${builtedRev}" >echo.txt
-#    echo "new revision ${repoRev}" >>echo.txt
-
-        if [ "${repoRev}" = "${builtedRev}" ]; then SkipAutoGen=1; fi
-    fi
-
+ #   checkCmdlineArguments $@
+ 
     #
     # Setup workspace if it is not set
     #
@@ -515,18 +519,45 @@ MainBuildScript() {
  #       echo "Building from: $WORKSPACE"
  #   fi
 
+    checkToolchain
+echo "Toolchain=$TOOLCHAIN at $TOOLCHAIN_DIR "
+
+
+export BUILD_DIR="${WORKSPACE}/Build/Clover/${BUILDTARGET}_${TOOLCHAIN}"
+export BUILD_DIR_ARCH="${BUILD_DIR}/$TARGETARCH"
+echo "BUILD_DIR: $BUILD_DIR"
+echo "BUILD_DIR_ARCH: $BUILD_DIR_ARCH"
+
+ #   local repoRev=$(git describe --tags $(git rev-list --tags --max-count=1﻿))
+	local repoRev=$(git describe --tags --abbrev=0)
+
+    #
+    # we are building the same rev as before?
+    local SkipAutoGen=0
+    #
+    if [[ -f "$CLOVERROOT"/Version.h ]]; then
+        local builtedRev=$(cat "$CLOVERROOT"/Version.h  \
+                           | grep '#define FIRMWARE_REVISION L' | awk -v FS="(\"|\")" '{print $2}')
+#    echo "old revision ${builtedRev}" >echo.txt
+#    echo "new revision ${repoRev}" >>echo.txt
+
+        if [ "${repoRev}" = "${builtedRev}" ]; then SkipAutoGen=1; fi
+    fi
+
+
     export CLOVER_PKG_DIR="$CLOVERROOT"/CloverPackage/CloverV2
+    echo "CLOVER_PKG_DIR: $CLOVER_PKG_DIR"
 
     # Cleaning part of the script if we have told to do it
     if [[ "$TARGETRULE" == cleanpkg ]]; then
-        if [[ "$SYSNAME" != Linux ]]; then
-            # Make some house cleaning
-            echo "Cleaning CloverUpdater files..."
-            make -C "$CLOVERROOT"/CloverPackage/CloverUpdater clean
-
-            echo "Cleaning CloverPrefpane files..."
-            make -C "$CLOVERROOT"/CloverPackage/CloverPrefpane clean
-        fi
+ #       if [[ "$SYSNAME" != Linux ]]; then
+ #           # Make some house cleaning
+ #           echo "Cleaning CloverUpdater files..."
+ #           make -C "$CLOVERROOT"/CloverPackage/CloverUpdater clean
+#
+ #           echo "Cleaning CloverPrefpane files..."
+ #           make -C "$CLOVERROOT"/CloverPackage/CloverPrefpane clean
+ #       fi
 
         echo "Cleaning bootsector files..."
         local BOOTHFS="$CLOVERROOT"/BootHFS
@@ -565,7 +596,12 @@ MainBuildScript() {
     # Create edk tools if necessary
     if  [[ ! -x "$EDK_TOOLS_PATH/Source/C/bin/GenFv" ]]; then
         echo "Building tools as they are not found"
+      if [[ "$SYSNAME" == Linux ]]; then
+        echo "Linux"   
+        make -C "$WORKSPACE"/BaseTools "BUILD_CC=clang"
+      else     
         make -C "$WORKSPACE"/BaseTools CC="gcc -Wno-deprecated-declarations"
+      fi
     fi
 
     # Apply options
@@ -574,7 +610,8 @@ MainBuildScript() {
     [[ "$ONLYSATA0PATCH" -ne 0 ]] && addEdk2BuildMacro 'ONLY_SATA_0'
     [[ "$USE_LOW_EBDA" -ne 0 ]] && addEdk2BuildMacro 'USE_LOW_EBDA'
     [[ -d "$WORKSPACE/MdeModulePkg/Universal/Variable/EmuRuntimeDxe" ]] && addEdk2BuildMacro 'HAVE_LEGACY_EMURUNTIMEDXE'
-    [[ "$CLANG" -ne 0 ]] && addEdk2BuildMacro 'CLANG'
+    [[ "$LLVM" -ne 0 ]] && addEdk2BuildMacro 'LLVM'
+    [[ "$ENABLE_MODERN_CPU" -ne 0 ]] && addEdk2BuildMacro 'ENABLE_MODERN_CPU_QUIRKS'
 
     local cmd="${EDK2_BUILD_OPTIONS[@]}"
 
@@ -817,7 +854,7 @@ MainPostBuildScript() {
 #      copyBin "$BUILD_DIR_ARCH"/$efi.efi "$CLOVER_PKG_DIR"/EFI/CLOVER/drivers/$DRIVERS_OFF/$DRIVERS_LEGACY/FileVault2/$efi.efi
 #    done
 
-    binArray=( ApfsDriverLoader FSInject )
+    binArray=( ApfsDriverLoader )
     for efi in "${binArray[@]}"
     do
       copyBin "$BUILD_DIR_ARCH"/$efi.efi "$CLOVER_PKG_DIR"/EFI/CLOVER/drivers/$DRIVERS_OFF/$DRIVERS_LEGACY/FileSystem/$efi.efi
@@ -829,7 +866,7 @@ MainPostBuildScript() {
 #    fi
 
 
-    binArray=( EnglishDxe )
+    binArray=( FSInject AudioDxe )
     for efi in "${binArray[@]}"
     do
       copyBin "$BUILD_DIR_ARCH"/$efi.efi "$CLOVER_PKG_DIR"/EFI/CLOVER/drivers/$DRIVERS_UEFI/$efi.efi
@@ -842,7 +879,7 @@ MainPostBuildScript() {
 #    done
 
     if [[ $M_NOGRUB -eq 0 ]]; then
-      binArray=( GrubEXFAT GrubISO9660 GrubNTFS GrubUDF )
+      binArray=( GrubEXFAT GrubISO9660 GrubNTFS GrubUDF GrubZFS GrubUFS GrubUFS2 )
       for efi in "${binArray[@]}"
       do
         copyBin "$BUILD_DIR_ARCH"/$efi.efi "$CLOVER_PKG_DIR"/EFI/CLOVER/drivers/$DRIVERS_OFF/$DRIVERS_LEGACY/FileSystem/$efi.efi
@@ -850,7 +887,7 @@ MainPostBuildScript() {
     fi
 
     # drivers64UEFI
-    binArray=( CsmVideoDxe EmuVariableUefi NvmExpressDxe OsxFatBinaryDrv PartitionDxe AudioDxe )
+    binArray=( CsmVideoDxe EmuVariableUefi NvmExpressDxe OsxFatBinaryDrv PartitionDxe )
 
     for efi in "${binArray[@]}"
     do
@@ -864,7 +901,7 @@ MainPostBuildScript() {
       copyBin "$BUILD_DIR_ARCH"/$efi.efi "$CLOVER_PKG_DIR"/EFI/CLOVER/drivers/$DRIVERS_OFF/$DRIVERS_UEFI/HID/$efi.efi
     done
 
-    binArray=( ApfsDriverLoader Fat VBoxExt2 VBoxExt4 VBoxIso9600 )
+    binArray=( ApfsDriverLoader Fat VBoxExt2 Ext4Dxe VBoxIso9600 )
 
     for efi in "${binArray[@]}"
     do
@@ -914,16 +951,6 @@ MainPostBuildScript() {
   echo "Generating BootSectors"
   local BOOTHFS="$CLOVERROOT"/BootHFS
   DESTDIR="$CLOVER_PKG_DIR"/BootSectors make -C $BOOTHFS
-  echo "Done!"
-  stopBuildEpoch=$(date -u "+%s")
-buildTime=$(expr $stopBuildEpoch - $startBuildEpoch)
-if [[ $buildTime -gt 59 ]]; then
-    timeToBuild=$(printf "%dm%ds" $((buildTime/60%60)) $((buildTime%60)))
-else
-    timeToBuild=$(printf "%ds" $((buildTime)))
-fi
-
-printf -- "\n* %s %s %s\n" "Clover build process took " "$timeToBuild" " to complete..."
 
 }
 
@@ -933,6 +960,24 @@ printf -- "\n* %s %s %s\n" "Clover build process took " "$timeToBuild" " to comp
 export LC_ALL=POSIX
 
 startBuildEpoch=$(date -u "+%s")
+
+checkCmdlineArguments $@
+
+if [[ "$SYSNAME" == Linux ]]; then
+  export TOOLCHAIN=GCC161
+  TOOLCHAIN_DIR=${TOOLCHAIN_DIR:-/usr}
+else
+  if [[ "$TOOLCHAIN" == XCLANG ]]; then
+    TOOLCHAIN_DIR=/opt/local
+  elif [[ -d ~/src/opt/local ]]; then
+    TOOLCHAIN_DIR=~/src/opt/local
+  else
+    TOOLCHAIN_DIR=${TOOLCHAIN_DIR:-"$CLOVERROOT"/toolchain}
+  fi
+  export DIR_MAIN=${DIR_MAIN:-"$CLOVERROOT"/toolchain}
+fi
+export TOOLCHAIN_DIR
+echo "TOOLCHAIN_DIR: $TOOLCHAIN_DIR"
 
 # Add toolchain bin directory to the PATH
 if [[ "$SYSNAME" != Linux ]]; then
@@ -968,3 +1013,17 @@ fi
 # End:                  #
 #
 # vi: set expandtab ts=4 sw=4 sts=4: #
+
+echo "Done!"
+stopBuildEpoch=$(date -u "+%s")
+buildTime=$(expr $stopBuildEpoch - $startBuildEpoch)
+if [[ $buildTime -ge 3600 ]]; then
+	timeToBuild=$(printf "%dh%dm%ds" $((buildTime/3600)) $((buildTime/60%60)) $((buildTime%60)))
+elif [[ $buildTime -gt 59 ]]; then
+    timeToBuild=$(printf "%dm%ds" $((buildTime/60%60)) $((buildTime%60)))
+else
+    timeToBuild=$(printf "%ds" $((buildTime)))
+fi
+
+printf -- "\n* %s %s %s\n" "Clover build process took " "$timeToBuild" " to complete..."
+

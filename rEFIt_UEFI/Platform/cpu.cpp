@@ -335,11 +335,20 @@ void GetCPUProperties (void)
       case CPU_MODEL_RAPTORLAKE:
       case CPU_MODEL_ALDERLAKE_ULT:
       case CPU_MODEL_RAPTORLAKE_B:
+	  case CPU_MODEL_RAPTORLAKE_M:
       case CPU_MODEL_METEORLAKE:
+        msr = AsmReadMsr64(MSR_CORE_THREAD_COUNT);  //0x35
+        DBG("MSR 0x35    %16llX\n", msr);  //Raptor 0000-0000-0014-001C
+        gCPUStructure.Cores   = (UINT8)bitfield((UINT32)msr, 31, 16);
+        gCPUStructure.Threads = (UINT8)bitfield((UINT32)msr, 15,  0);
+        break;
+      case CPU_MODEL_ARROWLAKE:
+      case CPU_MODEL_ARROWLAKE_X:
+      case CPU_MODEL_ARROWLAKE_U:
         msr = AsmReadMsr64(MSR_CORE_THREAD_COUNT);  //0x35
         DBG("MSR 0x35    %16llX\n", msr);
         gCPUStructure.Cores   = (UINT8)bitfield((UINT32)msr, 31, 16);
-        gCPUStructure.Threads = (UINT8)bitfield((UINT32)msr, 15,  0);
+        gCPUStructure.Threads = gCPUStructure.Cores; // no hyperthreading
         break;
         
       case CPU_MODEL_DALES:
@@ -391,6 +400,9 @@ void GetCPUProperties (void)
     } else if ( gCPUStructure.BrandString.contains("W36") ) {
       gCPUStructure.Cores   = 6;
       gCPUStructure.Threads = 6;
+    } else if ( gCPUStructure.BrandString.contains("285K") ) {
+      gCPUStructure.Cores   = 24;
+      gCPUStructure.Threads = 24;
     } else { //other Penryn and Wolfdale
       gCPUStructure.Cores   = 0;
       gCPUStructure.Threads = 0;
@@ -417,7 +429,7 @@ void GetCPUProperties (void)
     gCPUStructure.Threads = 4;
   }
   
-  //New for SkyLake 0x4E, 0x5E
+  //New for SkyLake 0x4E, 0x5E and up
   if(gCPUStructure.CPUID[CPUID_0][EAX] >= 0x15) {
     UINT32 Num, Denom;
     DoCpuid(0x15, gCPUStructure.CPUID[CPUID_15]);
@@ -533,8 +545,12 @@ void GetCPUProperties (void)
            case CPU_MODEL_ROCKETLAKE:
            case CPU_MODEL_ALDERLAKE_ULT:
            case CPU_MODEL_RAPTORLAKE_B:
+		   case CPU_MODEL_RAPTORLAKE_M:
            case CPU_MODEL_RAPTORLAKE:
            case CPU_MODEL_METEORLAKE:
+           case CPU_MODEL_ARROWLAKE:
+           case CPU_MODEL_ARROWLAKE_X:
+           case CPU_MODEL_ARROWLAKE_U:
 
             gCPUStructure.TSCFrequency = MultU64x32(gCPUStructure.CurrentSpeed, Mega); //MHz -> Hz
              gCPUStructure.CPUFrequency = gCPUStructure.TSCFrequency;
@@ -555,6 +571,7 @@ void GetCPUProperties (void)
              //   MsgLog("MSR 0xE4              %08X\n", msr);
              //------------
              msr = AsmReadMsr64(MSR_PLATFORM_INFO);       //0xCE
+             // Raptor 0808-0838-F081-1500 Max = 0x15 Min = 0x08
              MsgLog("MSR 0xCE              %08llX_%08llX\n", (msr>>32), msr & 0xFFFFFFFFull);
              gCPUStructure.MaxRatio = (UINT8)RShiftU64(msr, 8) & 0xff;
              gCPUStructure.MinRatio = (UINT8)MultU64x32(RShiftU64(msr, 40) & 0xff, 10);
@@ -1004,6 +1021,40 @@ void GetCPUProperties (void)
       }
         break;
         
+      case 0x1A: // and 1Ah Ryzen
+      {
+
+        UINT64 cofvid = 0 , msr_min = 0;
+        UINT64 cpuMult;
+        UINT64 CpuFid;
+
+        msr_min = AsmReadMsr64(K10_COFVID_LIMIT);
+        msr_min = AsmReadMsr64(K10_PSTATE_STATUS + (RShiftU64(msr_min, 4) & 0x7));
+        gCPUStructure.MinRatio = ((UINT32)DivU64x32(((msr_min & 0xFF)), (RShiftU64(msr_min, 8) & 0x3f)))*20;
+
+        cofvid = AsmReadMsr64(K10_PSTATE_STATUS);
+        CpuFid = bitfield(cofvid, 11, 0);
+
+        // On AMD Family 1Ah and later, if the Frequency ID (FID) exceeds 0x0f,
+        // the core frequency is scaled by a factor of 5. This scaling behavior
+        // is based on Linux kernel logic for handling higher frequency multipliers
+        // in newer AMD CPUs, where the FID no longer directly correlates to the
+        // bus ratio.
+        if (CpuFid > 0x0f) {
+        	CpuFid *= 5;
+        }
+
+        cpuMult = (UINT8)(CpuFid);
+        currcoef = (INTN)cpuMult;
+        gCPUStructure.MaxRatio = (UINT32)cpuMult;
+
+        cpuMultN2 = (cofvid & (UINT64)bit(0));
+        currdiv = cpuMultN2;
+        cpudid_zen = (UINT32)(RShiftU64(cofvid, 8) & 0xff); //for mult
+
+      }
+        break;
+
       default:
       {
         gCPUStructure.MaxRatio = (UINT32)DivU64x32(gCPUStructure.TSCFrequency, (200 * Mega));//hz / (200 * Mega);
@@ -1110,12 +1161,13 @@ void GetCPUProperties (void)
   tmpU = gCPUStructure.FSBFrequency;
 	DBG("Corrected FSBFrequency = %llu MHz\n", DivU64x32(tmpU, Mega));
   
-  if ((gCPUStructure.Vendor == CPU_VENDOR_INTEL) && (gCPUStructure.Model == CPU_MODEL_NEHALEM)) {
+  if ((gCPUStructure.Vendor == CPU_VENDOR_INTEL) &&
+      ((gCPUStructure.Model == CPU_MODEL_NEHALEM) || (gCPUStructure.Model == CPU_MODEL_NEHALEM_EX) ||
+       (gCPUStructure.Model == CPU_MODEL_WESTMERE) || (gCPUStructure.Model == CPU_MODEL_WESTMERE_EX))) {
     //Slice - for Nehalem we can do more calculation as in Cham
     // but this algo almost always wrong
     //
     // thanks to dgobe for i3/i5/i7 bus speed detection
-    // TODO: consider more Nehalem based CPU(?) ex. CPU_MODEL_NEHALEM_EX, CPU_MODEL_WESTMERE, CPU_MODEL_WESTMERE_EX
     // info: https://en.wikipedia.org/wiki/List_of_Intel_Xeon_microprocessors#Nehalem-based_Xeons
     qpimult = 2; //init
     /* Scan PCI BUS For QPI Frequency */
@@ -1421,7 +1473,11 @@ UINT16 GetAdvancedCpuType()
           case CPU_MODEL_RAPTORLAKE_B:
           case CPU_MODEL_ROCKETLAKE:
           case CPU_MODEL_RAPTORLAKE:
+		  case CPU_MODEL_RAPTORLAKE_M:
           case CPU_MODEL_METEORLAKE:
+          case CPU_MODEL_ARROWLAKE:
+          case CPU_MODEL_ARROWLAKE_X:
+          case CPU_MODEL_ARROWLAKE_U:
             if ( gCPUStructure.BrandString.contains("Core(TM) i3") )
               return 0x905; // Core i3 - Apple doesn't use it
             if ( gCPUStructure.BrandString.contains("Core(TM) i5-1") )
@@ -1446,6 +1502,8 @@ UINT16 GetAdvancedCpuType()
               return 0xE05;
             if ( gCPUStructure.BrandString.contains("Xeon") )
               return 0xF01;
+            if ( gCPUStructure.BrandString.contains("Core(TM) Ultra") )
+              return 0x1009; // Core Ultra 9
             if (gCPUStructure.Cores <= 2) {
               return 0x605;
             }
@@ -1558,6 +1616,13 @@ MacModel GetDefaultModel()
       case CPU_MODEL_ICELAKE_A:
       case CPU_MODEL_ICELAKE_C:
       case CPU_MODEL_ICELAKE_D:
+      case CPU_MODEL_TIGERLAKE_C:
+      case CPU_MODEL_TIGERLAKE_D:
+      case CPU_MODEL_ALDERLAKE_ULT:
+      case CPU_MODEL_RAPTORLAKE_B:
+	  case CPU_MODEL_RAPTORLAKE_M:
+      case CPU_MODEL_METEORLAKE:
+      case CPU_MODEL_ARROWLAKE_U:
         DefaultType = MacBookPro161;
         break;
      default:
@@ -1669,13 +1734,22 @@ MacModel GetDefaultModel()
       case CPU_MODEL_BROADWELL_E5:
         DefaultType = MacPro61;
         break;
-      case CPU_MODEL_ALDERLAKE:
-      case CPU_MODEL_ALDERLAKE_ULT:  //???
-      case CPU_MODEL_RAPTORLAKE_B:
       case CPU_MODEL_COMETLAKE_S:
+        if ( gCPUStructure.BrandString.contains("i9") ) {
+          DefaultType = iMac202;
+          break;
+        }
+        DefaultType = iMac201;
+        break;
       case CPU_MODEL_ROCKETLAKE:
+        DefaultType = iMac201;
+        break;
+      case CPU_MODEL_ALDERLAKE:
       case CPU_MODEL_RAPTORLAKE:
       case CPU_MODEL_METEORLAKE:
+      case CPU_MODEL_ARROWLAKE:
+      case CPU_MODEL_ARROWLAKE_X:
+      case CPU_MODEL_RAPTORLAKE_B:
         DefaultType = MacPro71;
         break;
       default:
@@ -1695,7 +1769,7 @@ void FillOCCpuInfo(OC_CPU_INFO* CpuInfo)
   CpuInfo->Hypervisor = gSettings.CPU.QEMU;
   CpuInfo->Type = (UINT8)gCPUStructure.Type;
   CpuInfo->Family = (UINT8)gCPUStructure.Family;
-  CpuInfo->Model = (UINT8)gCPUStructure.Model - (gCPUStructure.Extmodel << 4);
+  CpuInfo->Model = (UINT8)gCPUStructure.Model;  // - (gCPUStructure.Extmodel << 4);  :)
   CpuInfo->ExtModel = (UINT8)gCPUStructure.Extmodel;
   CpuInfo->ExtFamily = (UINT8)gCPUStructure.Extfamily;
   CpuInfo->Stepping = (UINT8)gCPUStructure.Stepping;

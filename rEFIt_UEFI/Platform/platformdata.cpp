@@ -66,9 +66,11 @@
  GFX0+IGPU+display
  Mac-7BA5B2D9E42DDD94 iMacPro1,1 Vega 56, no IGPU
  
+ VMWare
+ VMM-x86_64
  */
 
-// for HWTarget recommended values for T2 models (by Gradou)
+// for HWTarget recommended values for T2 models (by Gradou) (Monterey)
 /*
 MacBookPro 15,1 (J680AP) 15,2 (J132AP) 15,3 (J780AP) & 15,4 (J213AP)
 MacBookPro16,1 (J152fAP) 16,3 (J223AP) & 16,4 (J215AP
@@ -557,7 +559,7 @@ UINT64 GetPlatformFeature(MacModel Model)
     case MacBookAir82:
     case MacBookAir91:
       return 0x1A; //3A;
-      // It is nonsense, ASCII code сharacter "2" = 0x32 != 0x02. Don't use ioreg, so that not to be confused. Use dmidecode dump.
+      // It is nonsense, ASCII code character "2" = 0x32 != 0x02. Don't use ioreg, so that not to be confused. Use dmidecode dump.
     default:
       return 0xFFFF; // disabled
     }
@@ -802,8 +804,9 @@ XString8 GetReleaseDate(MacModel Model)
 
 void SetDMISettingsForModel(MacModel Model, SETTINGS_DATA* settingsData)
 {
-//  GlobalConfig.CurrentModel = Model; // 2022-05 Not using Goblal config to avoid inter-dependancy. CCPV wouldn't compile anymore.
-                                       //         be sure to to assign GlobalConfig.CurrentModel if you need to.
+//  GlobalConfig.CurrentModel = Model; // 2022-05 Not using Goblal config to avoid inter-dependancy.
+                                       // CCPV wouldn't compile anymore.
+                                       //   be sure to to assign GlobalConfig.CurrentModel if you need to.
   settingsData->Smbios.BiosVersion = ApplePlatformDataArray[Model].firmwareVersion;
   settingsData->Smbios.BiosReleaseDate = GetReleaseDate(Model);
   settingsData->Smbios.EfiVersion = ApplePlatformDataArray[Model].efiversion;

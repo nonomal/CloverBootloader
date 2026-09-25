@@ -179,6 +179,7 @@ typedef enum {
 #define SCREEN_KEXTS_MAN      29
 #define SCREEN_AUDIOPORTS     30
 #define SCREEN_QUIRKS         31
+#define SCREEN_KEXTS_BLOCK    32
 
 
 #define MAX_ANIME  41
@@ -364,6 +365,9 @@ void DebugPause(void);
 #define ICON_MONTEREY                          (54)
 #define ICON_VENTURA                           (55)
 #define ICON_SONOMA                            (56)
+#define ICON_SEQUOIA                           (57)
+#define ICON_TAHOE		                       (58)
+#define ICON_ARCH		                       (59)
 #define BUILTIN_ICON_BACKGROUND                (100)
 #define BUILTIN_ICON_SELECTION                 (101)
 #define BUILTIN_ICON_ANIME                     (102)

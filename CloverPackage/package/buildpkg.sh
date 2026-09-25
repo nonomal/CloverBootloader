@@ -265,7 +265,7 @@ addTemplateScripts () {
             echo "Error addTemplateScripts: template '$templateName' doesn't exists" >&2; exit 1; }
 
         # Copy files to destination
-        rsync -pr --exclude=.svn --exclude="*~" "$templateRootDir/" "$pkgRootDir/Scripts/"
+        rsync -pr --exclude=.svn --exclude="*~" --exclude=".DS_Store" "$templateRootDir/" "$pkgRootDir/Scripts/"
     done
 
     files=$( find "$pkgRootDir/Scripts/" -type f )
@@ -524,7 +524,7 @@ main ()
     choiceId="UEFI.only"
     packageRefId=$(getPackageRefId "${packagesidentity}" "${choiceId}")
     mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root/EFI
-    rsync -r --exclude=.svn --exclude="*~" --exclude='drivers*'   \
+    rsync -r --exclude=.svn --exclude="*~" --exclude='drivers*' --exclude='.empty' --exclude='.DS_Store'   \
      ${SRCROOT}/CloverV2/EFI/BOOT ${PKG_BUILD_DIR}/${choiceId}/Root/EFI/
     addTemplateScripts --pkg-rootdir="${PKG_BUILD_DIR}/${choiceId}" \
                        --subst="INSTALLER_CHOICE=$packageRefId" MarkChoice
@@ -630,9 +630,9 @@ fi
                        --subst="CLOVER_DRIVERS_LEGACY=$DRIVERS_LEGACY" \
                        --subst="CLOVER_DRIVERS_UEFI=$DRIVERS_UEFI" \
                        ${choiceId}
-    rsync -r --exclude=.svn --exclude="*~" --exclude='drivers*'   \
+    rsync -r --exclude=.svn --exclude="*~" --exclude='drivers*' --exclude='.empty' --exclude='.DS_Store'   \
      ${SRCROOT}/CloverV2/EFI/BOOT ${PKG_BUILD_DIR}/${choiceId}/Root/EFI/
-    rsync -r --exclude=.svn --exclude="*~" --exclude='drivers*'   \
+    rsync -r --exclude=.svn --exclude="*~" --exclude='drivers*' --exclude='.empty' --exclude='.DS_Store'   \
      ${SRCROOT}/CloverV2/EFI/CLOVER ${PKG_BUILD_DIR}/${choiceId}/Root/EFI/
 
     # config.plist
@@ -1245,96 +1245,113 @@ if [[ -d "${SRCROOT}/CloverV2/EFI/CLOVER/drivers/$DRIVERS_OFF/$DRIVERS_UEFI/Othe
 fi
 # End build Other drivers-x64UEFI packages
 
+# build CloverLogoutHook package
+    echo "================= CloverLogoutHook =================" 
+    local CLH_Dir="${SRCROOT}"/CloverLogoutHook
+    local CLH_Dest='/Library/Application Support/CloverLogoutHook'
+    choiceId="CloverLogoutHook"
+    packageRefId=$(getPackageRefId "${packagesidentity}" "${choiceId}") 
+    ditto --noextattr --noqtn "$CLH_Dir"  \
+    "${PKG_BUILD_DIR}/${choiceId}/Root/${CLH_Dest}"/ 
+    packagesidentity="${clover_package_identity}"
+    mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root/Library/Application\ Support/CloverLogoutHook
+    addTemplateScripts --pkg-rootdir="${PKG_BUILD_DIR}/${choiceId}" ${choiceId}   
+    packageRefId=$(getPackageRefId "${packagesidentity}" "${choiceId}")
+    buildpackage "$packageRefId" "${choiceId}" "${PKG_BUILD_DIR}/${choiceId}" "/"
+    addChoice --start-visible="true" --start-selected="false"  \
+              --pkg-refs="$packageRefId" "${choiceId}"
+# End build CloverLogoutHook package
+
 # build rc scripts package
-if [[ ${NOEXTRAS} != *"RC scripts"* ]]; then
-    echo "===================== RC Scripts ======================="
-    packagesidentity="$clover_package_identity"
+#  if [[ ${NOEXTRAS} != *"RC scripts"* ]]; then
+#     echo "===================== RC Scripts ======================="
+#     packagesidentity="$clover_package_identity"
 
 
-    choiceId="rc.scripts.on.target"
-    packageRefId=$(getPackageRefId "${packagesidentity}" "${choiceId}")
-    rcScriptsOnTargetPkgRefId=$packageRefId
-    mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root
-    addTemplateScripts --pkg-rootdir="${PKG_BUILD_DIR}/${choiceId}" \
-                       --subst="INSTALLER_CHOICE=$packageRefId" MarkChoice
-    buildpackage "$packageRefId" "${choiceId}" "${PKG_BUILD_DIR}/${choiceId}" "/"
-    addChoice --start-visible="true" \
-              --start-selected="checkFileExists('/System/Library/CoreServices/boot.efi') &amp;&amp; choicePreviouslySelected('$packageRefId')" \
-              --start-enabled="checkFileExists('/System/Library/CoreServices/boot.efi')" \
-              --pkg-refs="$packageRefId" "${choiceId}"
+#     choiceId="rc.scripts.on.target"
+#     packageRefId=$(getPackageRefId "${packagesidentity}" "${choiceId}")
+#     rcScriptsOnTargetPkgRefId=$packageRefId
+#     mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root
+#     addTemplateScripts --pkg-rootdir="${PKG_BUILD_DIR}/${choiceId}" \
+#                        --subst="INSTALLER_CHOICE=$packageRefId" MarkChoice
+#     buildpackage "$packageRefId" "${choiceId}" "${PKG_BUILD_DIR}/${choiceId}" "/"
+#     addChoice --start-visible="true" \
+#               --start-selected="checkFileExists('/System/Library/CoreServices/boot.efi') &amp;&amp; choicePreviouslySelected('$packageRefId')" \
+#               --start-enabled="checkFileExists('/System/Library/CoreServices/boot.efi')" \
+#               --pkg-refs="$packageRefId" "${choiceId}"
 
-    choiceId="rc.scripts.on.all.volumes"
-    packageRefId=$(getPackageRefId "${packagesidentity}" "${choiceId}")
-    rcScriptsOnAllColumesPkgRefId=$packageRefId
-    mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root
-    addTemplateScripts --pkg-rootdir="${PKG_BUILD_DIR}/${choiceId}" \
-                       --subst="INSTALLER_CHOICE=$packageRefId" MarkChoice
-    buildpackage "$packageRefId" "${choiceId}" "${PKG_BUILD_DIR}/${choiceId}" "/"
-    addChoice --start-visible="true" --start-selected="choicePreviouslySelected('$packageRefId')" \
-              --pkg-refs="$packageRefId" "${choiceId}"
+#     choiceId="rc.scripts.on.all.volumes"
+#     packageRefId=$(getPackageRefId "${packagesidentity}" "${choiceId}")
+#     rcScriptsOnAllColumesPkgRefId=$packageRefId
+#     mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root
+#     addTemplateScripts --pkg-rootdir="${PKG_BUILD_DIR}/${choiceId}" \
+#                        --subst="INSTALLER_CHOICE=$packageRefId" MarkChoice
+#     buildpackage "$packageRefId" "${choiceId}" "${PKG_BUILD_DIR}/${choiceId}" "/"
+#     addChoice --start-visible="true" --start-selected="choicePreviouslySelected('$packageRefId')" \
+#               --pkg-refs="$packageRefId" "${choiceId}"
 
-    choiceIdRcScriptsCore="rc.scripts.core"
-    choiceId=$choiceIdRcScriptsCore
-    mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root/Library/LaunchDaemons
-    mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root/Library/Application\ Support/Clover
-    mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root/etc
-    mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Scripts
-    addTemplateScripts --pkg-rootdir="${PKG_BUILD_DIR}/${choiceId}"                            \
-                       --subst="INSTALLER_ON_TARGET_REFID=$rcScriptsOnTargetPkgRefId"          \
-                       --subst="INSTALLER_ON_ALL_VOLUMES_REFID=$rcScriptsOnAllColumesPkgRefId" \
-                       RcScripts
-    # Add the rc script library
-    cp -f "$SCPT_LIB_DIR"/rc_scripts.lib "${PKG_BUILD_DIR}/${choiceId}"/Scripts
-    rsync -r --exclude=.* --exclude="*~" ${SRCROOT}/CloverV2/rcScripts/ ${PKG_BUILD_DIR}/${choiceId}/Root/
-    local toolsdir="${PKG_BUILD_DIR}/${choiceId}"/Scripts/Tools
-    mkdir -p "$toolsdir"
-    (cd "${PKG_BUILD_DIR}/${choiceId}"/Root && find {etc,Library} -type f > "$toolsdir"/rc.files)
-    fixperms "${PKG_BUILD_DIR}/${choiceId}/Root/"
-    chmod 644 "${PKG_BUILD_DIR}/${choiceId}/Root/Library/LaunchDaemons/com.projectosx.clover.daemon.plist"
-    chmod 744 "${PKG_BUILD_DIR}/${choiceId}/Root/Library/Application Support/Clover/CloverDaemon"
-    chmod 744 "${PKG_BUILD_DIR}/${choiceId}/Root/Library/Application Support/Clover/CloverDaemon-stopservice"
-    chmod 755 "${PKG_BUILD_DIR}/${choiceId}/Root/etc"/rc.*.d/*.{local,local.disabled}
-    chmod 755 "${PKG_BUILD_DIR}/${choiceId}/Scripts/postinstall"
-    packageRefId=$(getPackageRefId "${packagesidentity}" "${choiceId}")
-    buildpackage "$packageRefId" "${choiceId}" "${PKG_BUILD_DIR}/${choiceId}" "/"
-    addChoice --start-visible="false" \
-              --selected="choices['rc.scripts.on.target'].selected || choices['rc.scripts.on.all.volumes'].selected" \
-              --pkg-refs="$packageRefId" "${choiceId}"
+#     choiceIdRcScriptsCore="rc.scripts.core"
+#     choiceId=$choiceIdRcScriptsCore
+#     mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root/Library/LaunchDaemons
+#     mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root/Library/Application\ Support/Clover
+#     mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root/etc
+#     mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Scripts
+#     addTemplateScripts --pkg-rootdir="${PKG_BUILD_DIR}/${choiceId}"                            \
+#                        --subst="INSTALLER_ON_TARGET_REFID=$rcScriptsOnTargetPkgRefId"          \
+#                        --subst="INSTALLER_ON_ALL_VOLUMES_REFID=$rcScriptsOnAllColumesPkgRefId" \
+#                        RcScripts
+#     # Add the rc script library
+#     cp -f "$SCPT_LIB_DIR"/rc_scripts.lib "${PKG_BUILD_DIR}/${choiceId}"/Scripts
+#    rsync -r --exclude=.* --exclude="*~" ${SRCROOT}/CloverV2/rcScripts/ ${PKG_BUILD_DIR}/${choiceId}/Root/
+#     local toolsdir="${PKG_BUILD_DIR}/${choiceId}"/Scripts/Tools
+#     mkdir -p "$toolsdir"
+#     (cd "${PKG_BUILD_DIR}/${choiceId}"/Root && find {etc,Library} -type f > "$toolsdir"/rc.files)
+#     fixperms "${PKG_BUILD_DIR}/${choiceId}/Root/"
+#     chmod 644 "${PKG_BUILD_DIR}/${choiceId}/Root/Library/LaunchDaemons/com.projectosx.clover.daemon.plist"
+#     chmod 744 "${PKG_BUILD_DIR}/${choiceId}/Root/Library/Application Support/Clover/CloverDaemon"
+#     chmod 744 "${PKG_BUILD_DIR}/${choiceId}/Root/Library/Application Support/Clover/CloverDaemon-stopservice"
+#     chmod 755 "${PKG_BUILD_DIR}/${choiceId}/Root/etc"/rc.*.d/*.{local,local.disabled}
+#     chmod 755 "${PKG_BUILD_DIR}/${choiceId}/Scripts/postinstall"
+#     packageRefId=$(getPackageRefId "${packagesidentity}" "${choiceId}")
+#     buildpackage "$packageRefId" "${choiceId}" "${PKG_BUILD_DIR}/${choiceId}" "/"
+#     addChoice --start-visible="false" \
+#               --selected="choices['rc.scripts.on.target'].selected || choices['rc.scripts.on.all.volumes'].selected" \
+#               --pkg-refs="$packageRefId" "${choiceId}"
 # End build rc scripts package
 
 # build optional rc scripts package
-    echo "================= Optional RC Scripts =================="
-    packagesidentity="$clover_package_identity".optional.rc.scripts
-    addGroupChoices --title="Optional RC Scripts" --description="Optional RC Scripts" \
-                    --enabled="choices['$choiceIdRcScriptsCore'].selected"            \
-                    "OptionalRCScripts"
-    local scripts=($( find "${SRCROOT}/CloverV2/rcScripts/etc" -type f -name '*.disabled' -depth 2 ))
-    for (( i = 0 ; i < ${#scripts[@]} ; i++ ))
-    do
-        local script_rel_path=etc/"${scripts[$i]##*/etc/}" # ie: etc/rc.boot.d/70.xx_yy_zz.local.disabled
-        local script="${script_rel_path##*/}" # ie: 70.xx_yy_zz.local.disabled
-        local choiceId=$(echo "$script" | sed -E 's/^[0-9]*[.]?//;s/\.local\.disabled//') # ie: xx_yy_zz
-        local title=${choiceId//_/ } # ie: xx yy zz
-        packageRefId=$(getPackageRefId "${packagesidentity}" "${choiceId}")
-        mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root
-        addTemplateScripts --pkg-rootdir="${PKG_BUILD_DIR}/${choiceId}"                           \
-                          --subst="RC_SCRIPT=$script_rel_path"                                    \
-                          --subst="INSTALLER_ON_TARGET_REFID=$rcScriptsOnTargetPkgRefId"          \
-                          --subst="INSTALLER_ON_ALL_VOLUMES_REFID=$rcScriptsOnAllColumesPkgRefId" \
-                          --subst="INSTALLER_CHOICE=$packageRefId"                                \
-                          OptRcScripts
-        # Add the rc script library
-        cp -f "$SCPT_LIB_DIR"/rc_scripts.lib "${PKG_BUILD_DIR}/${choiceId}"/Scripts
-        fixperms  "${PKG_BUILD_DIR}/${choiceId}/Root/"
-        chmod 755 "${PKG_BUILD_DIR}/${choiceId}/Scripts/postinstall"
-        buildpackage "$packageRefId" "${choiceId}" "${PKG_BUILD_DIR}/${choiceId}" "/"
-        addChoice --group="OptionalRCScripts" --title="$title"                  \
-                  --start-selected="choicePreviouslySelected('$packageRefId')"  \
-                  --enabled="choices['OptionalRCScripts'].enabled"              \
-                  --pkg-refs="$packageRefId" "${choiceId}"
-    done
+#     echo "================= Optional RC Scripts =================="
+#     packagesidentity="$clover_package_identity".optional.rc.scripts
+#     addGroupChoices --title="Optional RC Scripts" --description="Optional RC Scripts" \
+#                     --enabled="choices['$choiceIdRcScriptsCore'].selected"            \
+#                     "OptionalRCScripts"
+#     local scripts=($( find "${SRCROOT}/CloverV2/rcScripts/etc" -type f -name '*.disabled' -depth 2 ))
+#     for (( i = 0 ; i < ${#scripts[@]} ; i++ ))
+#     do
+#         local script_rel_path=etc/"${scripts[$i]##*/etc/}" # ie: etc/rc.boot.d/70.xx_yy_zz.local.disabled
+#         local script="${script_rel_path##*/}" # ie: 70.xx_yy_zz.local.disabled
+#         local choiceId=$(echo "$script" | sed -E 's/^[0-9]*[.]?//;s/\.local\.disabled//') # ie: xx_yy_zz
+#         local title=${choiceId//_/ } # ie: xx yy zz
+#         packageRefId=$(getPackageRefId "${packagesidentity}" "${choiceId}")
+#         mkdir -p ${PKG_BUILD_DIR}/${choiceId}/Root
+#         addTemplateScripts --pkg-rootdir="${PKG_BUILD_DIR}/${choiceId}"                           \
+#                         --subst="RC_SCRIPT=$script_rel_path"                                    \
+#                         --subst="INSTALLER_ON_TARGET_REFID=$rcScriptsOnTargetPkgRefId"          \
+#                          --subst="INSTALLER_ON_ALL_VOLUMES_REFID=$rcScriptsOnAllColumesPkgRefId" \
+#                          --subst="INSTALLER_CHOICE=$packageRefId"                                \
+#                          OptRcScripts
+#        Add the rc script library
+#        cp -f "$SCPT_LIB_DIR"/rc_scripts.lib "${PKG_BUILD_DIR}/${choiceId}"/Scripts
+#        fixperms  "${PKG_BUILD_DIR}/${choiceId}/Root/"
+#        chmod 755 "${PKG_BUILD_DIR}/${choiceId}/Scripts/postinstall"
+#        buildpackage "$packageRefId" "${choiceId}" "${PKG_BUILD_DIR}/${choiceId}" "/"
+#        addChoice --group="OptionalRCScripts" --title="$title"                  \
+#                  --start-selected="choicePreviouslySelected('$packageRefId')"  \
+#                  --enabled="choices['OptionalRCScripts'].enabled"              \
+#                  --pkg-refs="$packageRefId" "${choiceId}"
+#    done
 # End build optional rc scripts package
-fi
+# fi
 
 # build theme packages
 if [[ ${NOEXTRAS} != *"Clover Themes"* ]]; then
@@ -1352,7 +1369,7 @@ if [[ ${NOEXTRAS} != *"Clover Themes"* ]]; then
         local themeName=${themes[$i]##*/}
         [[ -n $(inArray "$themeName" ${specialThemes[@]}) ]] && continue # it is a special theme
         mkdir -p "${PKG_BUILD_DIR}/${themeName}/Root/"
-        rsync -r --exclude=.svn --exclude="*~" "${themes[$i]}/" "${PKG_BUILD_DIR}/${themeName}/Root/${themeName}"
+        rsync -r --exclude=.svn --exclude="*~" --exclude=".DS_Store" "${themes[$i]}/" "${PKG_BUILD_DIR}/${themeName}/Root/${themeName}"
         packageRefId=$(getPackageRefId "${packagesidentity}" "${themeName}")
         addTemplateScripts --pkg-rootdir="${PKG_BUILD_DIR}/${themeName}" \
                            --subst="themeName=$themeName"                \
@@ -1378,7 +1395,7 @@ if [[ ${NOEXTRAS} != *"Clover Themes"* ]]; then
         # Don't add christmas and newyear themes if month < 11
         [[ $currentMonth -lt 11 ]] && [[ "$themeName" == christmas ]] && continue
         mkdir -p "${PKG_BUILD_DIR}/${themeName}/Root/"
-        rsync -r --exclude=.svn --exclude="*~" "$artwork/${specialThemes[$i]}/" "${PKG_BUILD_DIR}/${themeName}/Root/${themeName}"
+        rsync -r --exclude=.svn --exclude="*~" --exclude=".DS_Store" "$artwork/${specialThemes[$i]}/" "${PKG_BUILD_DIR}/${themeName}/Root/${themeName}"
         packageRefId=$(getPackageRefId "${packagesidentity}" "${themeName}")
         addTemplateScripts --pkg-rootdir="${PKG_BUILD_DIR}/${themeName}" \
                            --subst="themeName=$themeName"                \
@@ -1436,7 +1453,6 @@ if [[ -d "${SRCROOT}"/BootLoaderChooser && ${NOEXTRAS} != *"BootLoaderChooser"* 
       if [ -d "$BLC_Dir" ]; then
         addChoice --start-visible="true" --start-selected="choicePreviouslySelected('$packageRefId')"  \
                   --pkg-refs="$packageRefId" "${choiceId}"
-                  echo "   **** Option usable with buildme only ****"
       else
 
         addChoice --start-visible="false" --start-selected="false"  \

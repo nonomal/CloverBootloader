@@ -75,6 +75,27 @@
 #include "../Platform/Settings.h"
 #include "../Platform/StartupSound.h" // for audioIo
 
+///0C483552-CAC3-4E72-B7DD-94F16C44C394
+//constexpr const EFI_GUID PreGuid = { 0x0C483552, 0xCAC3, 0x4E72, { 0x87, 0xDD, 0x94, 0xF1, 0x6C, 0x44, 0xC3, 0x94 } };
+void testEfires()
+{
+//  EFI_STATUS          Status;
+//  UINTN               HandleCount = 0;
+//  EFI_HANDLE          *Handles;
+//  EFI_FILE*     dir;
+
+
+//  Status = gBS->LocateHandleBuffer(ByProtocol, &PreGuid, NULL, &HandleCount, &Handles);
+//  if (!EFI_ERROR(Status) && HandleCount > 0) {
+//    dir = EfiLibOpenRoot(Handles[0]);
+//      if (dir == NULL)
+//          Status = EFI_NOT_FOUND;
+//      FreePool(Handles);
+//  }
+
+
+}
+
 //
 const CHAR16 ArrowUp[2]   = { ARROW_UP, 0 }; //defined in  Simple Text Out protocol
 const CHAR16 ArrowDown[2] = { ARROW_DOWN, 0 };
@@ -514,9 +535,9 @@ UINTN REFIT_MENU_SCREEN::InputDialog()
         OldChosenSmbios = Pos;
       } else if (Item->IValue == 90) {
         OldChosenConfig = Pos;
-      } else if (Item->IValue == 116) {
+      } else if (Item->IValue == 115) {
         OldChosenDsdt = Pos? Pos - 1: 0xFFFF;
-      } else if (Item->IValue == 119) {
+      } else if (Item->IValue == 118) {
         OldChosenAudio = Pos;
       }
       MenuExit = MENU_EXIT_ENTER;
@@ -688,6 +709,30 @@ EFI_STATUS REFIT_MENU_SCREEN::WaitForInputEventPoll(UINTN TimeoutDefault)
     }
   }
   return Status;
+}
+
+void testBMP()
+{
+    EFI_STATUS      Status;
+    UINT8           *FileData = NULL;
+    UINTN           FileDataLength = 0;
+    INTN Width = 256, Height = 256;
+
+        // load file
+    Status = egLoadFile(&self.getSelfVolumeRootDir(), L"Sample.bmp", &FileData, &FileDataLength);
+
+    if (!EFI_ERROR(Status)) {
+      DBG("read file size=%llu\n", FileDataLength);
+      XImage NewImage(Width, Height);
+      NewImage.FromBMP(FileData, FileDataLength);
+      Width = NewImage.GetWidth();
+      Height = NewImage.GetHeight();
+      DBG("new image sizes w=%llu h=%llu\n", Width, Height);
+      NewImage.Draw((UGAWidth - Width) / 2, (UGAHeight - Height) / 2);
+      FreePool(FileData);
+      FileData = NULL;
+    }
+
 }
 
 
@@ -976,8 +1021,8 @@ UINTN REFIT_MENU_SCREEN::RunGenericMenu(IN OUT INTN *DefaultEntryIndex, OUT REFI
         break;
       case SCAN_F8:
         testSVG();
-//        SaveHdaDumpBin();
-//        SaveHdaDumpTxt();
+ //       testBMP();
+ //       testEfires();
         break;
 
       case SCAN_F9:
@@ -1013,6 +1058,9 @@ UINTN REFIT_MENU_SCREEN::RunGenericMenu(IN OUT INTN *DefaultEntryIndex, OUT REFI
         } else if (!Entries[ScrollState.CurrentSelection].getREFIT_INFO_DIALOG()) {
           MenuExit = MENU_EXIT_ENTER;
         }
+        break;
+      case 'B':
+        testBMP();
         break;
       case ' ': //CHAR_SPACE
         if ((Entries[ScrollState.CurrentSelection].getREFIT_INPUT_DIALOG()) ||
@@ -1096,9 +1144,9 @@ void REFIT_MENU_SCREEN::TextMenuStyle(IN UINTN Function, IN CONST CHAR16 *ParamT
       j = OldChosenConfig;
     } else if (Entries[0].getREFIT_MENU_SWITCH() && Entries[0].getREFIT_MENU_SWITCH()->Item->IValue == 65) {
       j = OldChosenSmbios;
-    } else if (Entries[0].getREFIT_MENU_SWITCH() && Entries[0].getREFIT_MENU_SWITCH()->Item->IValue == 116) {
+    } else if (Entries[0].getREFIT_MENU_SWITCH() && Entries[0].getREFIT_MENU_SWITCH()->Item->IValue == 115) {
       j = OldChosenDsdt;
-    } else if (Entries[0].getREFIT_MENU_SWITCH() && Entries[0].getREFIT_MENU_SWITCH()->Item->IValue == 119) {
+    } else if (Entries[0].getREFIT_MENU_SWITCH() && Entries[0].getREFIT_MENU_SWITCH()->Item->IValue == 118) {
       j = OldChosenAudio;
     }
 
@@ -1161,9 +1209,9 @@ void REFIT_MENU_SCREEN::TextMenuStyle(IN UINTN Function, IN CONST CHAR16 *ParamT
               OldChosenItem = OldChosenConfig;
             } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 65) {
               OldChosenItem = OldChosenSmbios;
-            } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 116) {
+            } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 115) {
               OldChosenItem = OldChosenDsdt;
-            } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 119) {
+            } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 118) {
               OldChosenItem = OldChosenAudio;
             }
 
@@ -1223,9 +1271,9 @@ void REFIT_MENU_SCREEN::TextMenuStyle(IN UINTN Function, IN CONST CHAR16 *ParamT
             OldChosenItem = OldChosenConfig;
           } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 65) {
             OldChosenItem = OldChosenSmbios;
-          } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 116) {
+          } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 115) {
             OldChosenItem = OldChosenDsdt;
-          } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 119) {
+          } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 118) {
             OldChosenItem = OldChosenAudio;
           }
 
@@ -1261,9 +1309,9 @@ void REFIT_MENU_SCREEN::TextMenuStyle(IN UINTN Function, IN CONST CHAR16 *ParamT
             OldChosenItem = OldChosenConfig;
           } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 65) {
             OldChosenItem = OldChosenSmbios;
-          } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 116) {
+          } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 115) {
             OldChosenItem = OldChosenDsdt;
-          } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 119) {
+          } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 118) {
             OldChosenItem = OldChosenAudio;
           }
 
@@ -1573,9 +1621,9 @@ void REFIT_MENU_SCREEN::GraphicsMenuStyle(IN UINTN Function, IN CONST CHAR16 *Pa
             Chosen = OldChosenSmbios;
           } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 90) {
             Chosen = OldChosenConfig;
-          } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 116) {
+          } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 115) {
             Chosen = (OldChosenDsdt == 0xFFFF) ? 0: (OldChosenDsdt + 1);
-          } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 119) {
+          } else if (entry.getREFIT_MENU_SWITCH()->Item->IValue == 118) {
             Chosen = OldChosenAudio;
           }
         }
@@ -1707,9 +1755,9 @@ void REFIT_MENU_SCREEN::GraphicsMenuStyle(IN UINTN Function, IN CONST CHAR16 *Pa
             OldChosenItem = OldChosenSmbios;
           } else if (Entry->getREFIT_MENU_SWITCH()->Item->IValue == 90) {
             OldChosenItem = OldChosenConfig;
-          } else if (Entry->getREFIT_MENU_SWITCH()->Item->IValue == 116) {
+          } else if (Entry->getREFIT_MENU_SWITCH()->Item->IValue == 115) {
             OldChosenItem =  (OldChosenDsdt == 0xFFFF) ? 0: (OldChosenDsdt + 1);
-          } else if (Entry->getREFIT_MENU_SWITCH()->Item->IValue == 119) {
+          } else if (Entry->getREFIT_MENU_SWITCH()->Item->IValue == 118) {
             OldChosenItem = OldChosenAudio;
           }
           DrawMenuText(ResultString, (i == ScrollState.CurrentSelection) ? MenuWidth : 0,
@@ -1773,9 +1821,9 @@ void REFIT_MENU_SCREEN::GraphicsMenuStyle(IN UINTN Function, IN CONST CHAR16 *Pa
           OldChosenItem = OldChosenSmbios;
         } else if (EntryL->getREFIT_MENU_SWITCH()->Item->IValue == 90) {
           OldChosenItem = OldChosenConfig;
-        } else if (EntryL->getREFIT_MENU_SWITCH()->Item->IValue == 116) {
+        } else if (EntryL->getREFIT_MENU_SWITCH()->Item->IValue == 115) {
           OldChosenItem = (OldChosenDsdt == 0xFFFF) ? 0: OldChosenDsdt + 1;
-        } else if (EntryL->getREFIT_MENU_SWITCH()->Item->IValue == 119) {
+        } else if (EntryL->getREFIT_MENU_SWITCH()->Item->IValue == 118) {
           OldChosenItem = OldChosenAudio;
         }
         // clovy
@@ -1806,9 +1854,9 @@ void REFIT_MENU_SCREEN::GraphicsMenuStyle(IN UINTN Function, IN CONST CHAR16 *Pa
           OldChosenItem = OldChosenSmbios;
         } else if (EntryC->getREFIT_MENU_SWITCH()->Item->IValue == 90) {
           OldChosenItem = OldChosenConfig;
-        } else if (EntryC->getREFIT_MENU_SWITCH()->Item->IValue == 116) {
+        } else if (EntryC->getREFIT_MENU_SWITCH()->Item->IValue == 115) {
           OldChosenItem = (OldChosenDsdt == 0xFFFF) ? 0: OldChosenDsdt + 1;
-        } else if (EntryC->getREFIT_MENU_SWITCH()->Item->IValue == 119) {
+        } else if (EntryC->getREFIT_MENU_SWITCH()->Item->IValue == 118) {
           OldChosenItem = OldChosenAudio;
         }
       }
@@ -1885,7 +1933,7 @@ void REFIT_MENU_SCREEN::AddMenuCheck(CONST CHAR8 *Text, UINTN Bit, INTN ItemNum)
 void REFIT_MENU_SCREEN::AddMenuItem_(REFIT_MENU_ENTRY_ITEM_ABSTRACT* InputBootArgs, INTN Inx, CONST CHAR8 *Line, XBool Cursor)
 {
   InputBootArgs->Title.takeValueFrom(Line);
-  if (Inx == 3 || Inx == 116) {
+  if (Inx == 3 || Inx == 115) {
     InputBootArgs->Row          = 0;
   } else {
     InputBootArgs->Row          = Cursor?InputItems[Inx].SValue.length():0xFFFF;

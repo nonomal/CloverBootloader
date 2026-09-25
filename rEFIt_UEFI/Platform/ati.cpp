@@ -69,6 +69,7 @@ const radeon_card_info_t radeon_cards[] = {
     { 0x73AF,  CHIP_FAMILY_NAVI20, "AMD Radeon RX6900XT",          kNull },
     { 0x73BF,  CHIP_FAMILY_NAVI20, "AMD Radeon RX6800XT",          kNull },
     { 0x73DF,  CHIP_FAMILY_NAVI20, "AMD Radeon RX6700XT",          kNull },
+	{ 0x73E1,  CHIP_FAMILY_NAVI20, "AMD Radeon Pro W6600M", 		   kNull }, // suppose Navi23
     { 0x73EF,  CHIP_FAMILY_NAVI20, "AMD Radeon RX6650XT",          kNull },
     { 0x73FF,  CHIP_FAMILY_NAVI20, "AMD Radeon RX6600XT",          kNull },
 
@@ -1232,6 +1233,7 @@ Radeon Pro WX
 The low to mid-range, single slot, Polaris-based WX 4100 Buffin (PCIe x8 electrical), WX 5100, WX 7100 are supported from OS X Sierra;
 the high-end WX 8200 (Vega 56) and WX 9100 (Vega 64), from High Sierra. 
 Lexa-based WX 2100, WX 3100 and WX 3200 do NOT work.
+W6600M - ?
 
 */
 
@@ -1535,7 +1537,7 @@ XBool get_model_val(value_t *val, INTN index, XBool Sier)
 //static CONST UINT32 ctd[] = {0x04, 0x10, 0x800, 0x400}; //desktop
 //static UINT32 cti = 0;
 
-KERNEL_AND_KEXT_PATCHES *CurrentPatches;
+//KERNEL_AND_KEXT_PATCHES *CurrentPatches;
 
 //TODO - get connectors from ATIConnectorsPatch
 XBool get_conntype_val(value_t *val, INTN index, XBool Sier)
@@ -1549,10 +1551,11 @@ XBool get_conntype_val(value_t *val, INTN index, XBool Sier)
   //0x400: DisplayPort
   //0x02:  LVDS
 
-  if ((CurrentPatches == NULL) || (CurrentPatches->KPATIConnectorsData.isEmpty())) {
-    return false;
-  }
-  ct = CurrentPatches->KPATIConnectorsPatch.data();
+//  if ((CurrentPatches == NULL) || (CurrentPatches->KPATIConnectorsData.isEmpty())) {
+//    return false;
+//  }
+//  ct = CurrentPatches->KPATIConnectorsPatch.data();
+  ct = gSettings.KernelAndKextPatches.KPATIConnectorsPatch.data();
   Len = Sier?24:16;
 
   /*  if (gMobile) {
@@ -2244,7 +2247,7 @@ XBool setup_ati_devprop(LOADER_ENTRY *Entry, pci_dt_t *ati_dev)
   if (!init_card(ati_dev)) {
     return false;
   }
-  CurrentPatches = &Entry->KernelAndKextPatches;
+//  CurrentPatches = &Entry->KernelAndKextPatches;
 
   // -------------------------------------------------
   // Find a better way to do this (in device_inject.c)

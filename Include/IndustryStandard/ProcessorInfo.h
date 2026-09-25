@@ -203,7 +203,11 @@ enum {
 #define CPU_MODEL_ROCKETLAKE     0xA7  /* 11h Rocket Lake */
 #define CPU_MODEL_RAPTORLAKE     0xB7  /* 13h Raptor Lake */
 #define CPU_MODEL_RAPTORLAKE_B   0xBF  /* 13h Raptor Lake, i5-13400h */
+#define CPU_MODEL_RAPTORLAKE_M   0xBA    // Raptor Lake Mobile
 #define CPU_MODEL_METEORLAKE     0xAA  /* 14h Meteor Lake */
+#define CPU_MODEL_ARROWLAKE		 0xC6  /* 15h Arrow Lake */
+#define CPU_MODEL_ARROWLAKE_X	 0xC5  /* 15h Arrow Lake */
+#define CPU_MODEL_ARROWLAKE_U	 0xB5  /* 15h Arrow Lake */
 
 #define CPU_SOCKET_UNKNOWN  0x02
 #define CPU_SOCKET_PGA478   0x0F
@@ -213,9 +217,12 @@ enum {
 #define CPU_SOCKET_LGA1366  0x19
 
 #define AMD_CPU_FAMILY          0xF
+#define AMD_CPU_EXT_FAMILY_0FH  0x0
+#define AMD_CPU_EXT_FAMILY_10H  0x1
 #define AMD_CPU_EXT_FAMILY_15H  0x6
 #define AMD_CPU_EXT_FAMILY_16H  0x7
 #define AMD_CPU_EXT_FAMILY_17H  0x8
+#define AMD_CPU_EXT_FAMILY_19H  0xA
 
 // CPU_P_STATE_COORDINATION
 /// P-State Coordination
